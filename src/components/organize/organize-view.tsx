@@ -166,8 +166,13 @@ const CATEGORY_ORDER: Article["category"][] = ["połóg", "laktacja", "formalno�
 const CATEGORY_TITLE: Record<Article["category"], string> = { połóg: "Połóg", laktacja: "Karmienie", formalności: "Formalności po porodzie", "powrót do pracy": "Powrót do pracy", "dla ojców": "Dla taty" };
 
 /** Baza wiedzy: poradniki pogrupowane tematycznie (połóg na początku) i polecane książki. */
-export function KnowledgeTab() {
-  const [article, setArticle] = useState<string | null>(null);
+export function KnowledgeTab({ openId }: { openId?: string | null } = {}) {
+  const [article, setArticle] = useState<string | null>(openId ?? null);
+  const [prevOpen, setPrevOpen] = useState(openId);
+  if (openId !== prevOpen) {
+    setPrevOpen(openId);
+    if (openId) setArticle(openId);
+  }
   const a = ARTICLES.find((x) => x.id === article);
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">

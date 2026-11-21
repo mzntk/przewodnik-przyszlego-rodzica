@@ -2,6 +2,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Annoyed, BookOpen, Briefcase, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock, Download, Frown, Laugh, Lightbulb, MapPin, Meh, Pencil, Smile, Stethoscope, Trash2, Users } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 const MOOD_ICONS = [Frown, Annoyed, Meh, Smile, Laugh];
 
@@ -39,6 +40,16 @@ export function PregnancyView() {
   ];
   const [tab, setTab] = useState<Tab>(tabs[0].id);
   const bio = data.child.path === "biologiczny";
+  // link z lupki / ZUSi: /ciaza?tab=listy albo /ciaza?tab=poradniki&art=…
+  const params = useSearchParams();
+  const urlTab = params.get("tab") as Tab | null;
+  const article = params.get("art");
+  const [seen, setSeen] = useState<string | null>(null);
+  const key = `${urlTab}|${article}`;
+  if (urlTab && key !== seen && tabs.some((t) => t.id === urlTab)) {
+    setSeen(key);
+    setTab(urlTab);
+  }
 
   return (
     <div className="space-y-6">
@@ -46,7 +57,7 @@ export function PregnancyView() {
       <MotionTabs layoutId="preg-tab" value={tab} onChange={setTab} tabs={tabs} />
       <AnimatePresence mode="wait">
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ type: "spring", stiffness: 320, damping: 30 }}>
-          {tab === "kalendarz" ? <CalendarTab /> : tab === "listy" ? <ChecklistTab readOnly={false} /> : <KnowledgeTab />}
+          {tab === "kalendarz" ? <CalendarTab /> : tab === "listy" ? <ChecklistTab readOnly={false} /> : <KnowledgeTab openId={article} />}
         </motion.div>
       </AnimatePresence>
     </div>

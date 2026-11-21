@@ -1,46 +1,39 @@
 "use client";
 import { Dialog } from "radix-ui";
-import { BookOpen, FileText, HelpCircle, Phone, Search, SquareArrowOutUpRight, X } from "lucide-react";
+import { AlertTriangle, BookOpen, ClipboardList, FileText, HandHeart, HelpCircle, MapPin, Phone, Search, Sparkles, SquareArrowOutUpRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { GLOSSARY } from "@/data/glossary";
-import { KNOWLEDGE } from "@/data/knowledge";
-import { GUIDES } from "@/data/documents";
-import { ARTICLES } from "@/data/organize";
-import { HOTLINES } from "@/data/support";
+import { CORPUS, type CorpusKind } from "@/data/corpus";
+import { prepare, search } from "@/lib/search";
 import { useApp } from "@/store/app";
 import { navFor, resolveHref } from "./nav";
 import { cn } from "@/lib/utils";
 
-type Kind = "strona" | "pojęcie" | "pytanie" | "druk" | "poradnik" | "telefon";
+export { norm } from "@/lib/search";
+
+type Kind = CorpusKind | "strona";
+
 interface Entry {
   id: string;
   kind: Kind;
   title: string;
   text?: string;
-  hay: string;
+  answer?: string;
+  keywords?: string[];
   href?: string;
   caseId?: string;
 }
 
-const ICON: Record<Kind, typeof Search> = { strona: SquareArrowOutUpRight, pojęcie: HelpCircle, pytanie: HelpCircle, druk: FileText, poradnik: BookOpen, telefon: Phone };
-const LABEL: Record<Kind, string> = { strona: "Sekcja", pojęcie: "Pojęcie", pytanie: "Pytanie i odpowiedź", druk: "Druk / wniosek", poradnik: "Poradnik", telefon: "Telefon" };
+const ICON: Record<Kind, typeof Search> = { strona: SquareArrowOutUpRight, sekcja: SquareArrowOutUpRight, pojęcie: HelpCircle, pytanie: HelpCircle, druk: FileText, poradnik: BookOpen, lista: ClipboardList, ryzyko: AlertTriangle, telefon: Phone, organizacja: HandHeart, funkcja: Sparkles, miejsce: MapPin };
+const LABEL: Record<Kind, string> = { strona: "Sekcja aplikacji", sekcja: "Sekcja aplikacji", pojęcie: "Pojęcie", pytanie: "Pytanie i odpowiedź", druk: "Druk / wniosek", poradnik: "Poradnik", lista: "Lista", ryzyko: "Na co uważać", telefon: "Telefon", organizacja: "Organizacja pomocowa", funkcja: "Jak to zrobić w aplikacji", miejsce: "Placówka" };
+const EXPANDABLE: Kind[] = ["pojęcie", "pytanie", "lista", "ryzyko", "funkcja"];
+const EXAMPLES = ["co spakować do szpitala", "ile wynosi zasiłek", "urlop ojcowski", "jak dodać wizytę", "Z-3", "położna"];
 
-/** Normalizacja: małe litery, bez polskich znaków – „zasilek” znajdzie „zasiłek”. */
-export const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ł/g, "l");
-
-function useIndex(): Entry[] {
+function useIndex() {
   const { account, access } = useApp();
   return useMemo(() => {
-    const e: Entry[] = [];
-    for (const g of navFor(account, access)) for (const n of g.items) e.push({ id: `nav-${n.href}`, kind: "strona", title: n.label, hay: `${n.label} ${n.short} ${g.title}`, href: n.href });
-    if (account === "admin") return e;
-    for (const [id, g] of Object.entries(GLOSSARY)) e.push({ id: `g-${id}`, kind: "pojęcie", title: g.term, text: g.what, hay: `${g.term} ${g.what} ${g.who}` });
-    for (const k of KNOWLEDGE) e.push({ id: `k-${k.id}`, kind: "pytanie", title: k.q, text: k.a, hay: `${k.q} ${k.keywords.join(" ")} ${k.a}`, href: k.links?.[0]?.href });
-    for (const g of Object.values(GUIDES)) e.push({ id: `d-${g.id}`, kind: "druk", title: `${g.code} – ${g.name}`, text: g.howTo[0], hay: `${g.code} ${g.name} ${g.legal}`, caseId: g.id });
-    for (const a of ARTICLES) e.push({ id: `a-${a.id}`, kind: "poradnik", title: a.title, text: a.lead, hay: `${a.title} ${a.lead} ${a.category} ${a.body.join(" ")}`, href: "/ciaza" });
-    for (const h of HOTLINES) e.push({ id: `t-${h.number}`, kind: "telefon", title: `${h.name}: ${h.number}`, text: h.note, hay: `${h.name} ${h.note} telefon numer`, href: `tel:${h.number.replace(/\s/g, "")}` });
-    return e.map((x) => ({ ...x, hay: norm(x.hay) }));
+    const nav: Entry[] = navFor(account, access).flatMap((g) => g.items.map((n) => ({ id: `nav-${n.href}`, kind: "strona" as const, title: n.label, keywords: [n.short, g.title], href: n.href })));
+    return prepare<Entry>(account === "admin" ? nav : [...nav, ...CORPUS.filter((c) => c.kind !== "sekcja" || c.href?.includes("?"))]);
   }, [account, access]);
 }
 
@@ -72,25 +65,20 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
   const { openCase, account, access } = useApp();
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
-  const tokens = norm(q).split(/\s+/).filter((t) => t.length >= 2);
-  const results = tokens.length
-    ? index
-        .map((x) => ({ x, score: tokens.every((t) => x.hay.includes(t)) ? tokens.reduce((s, t) => s + (norm(x.title).includes(t) ? 3 : 1), 0) : 0 }))
-        .filter((r) => r.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 30)
-        .map((r) => r.x)
-    : [];
+  // pokazujemy tylko trafne wyniki: co najmniej połowa istotnych słów zapytania
+  const results = useMemo(() => (q.trim().length < 2 ? [] : search(index, q, 25).filter((h) => h.coverage >= 0.5)), [index, q]);
 
   function go(e: Entry) {
-    if (e.kind === "pojęcie" || (e.kind === "pytanie" && expanded !== e.id)) return setExpanded(expanded === e.id ? null : e.id);
     onOpenChange(false);
+    setQ("");
+    setExpanded(null);
     if (e.caseId) {
       router.push(resolveHref("/wnioski", account, access));
       openCase(e.caseId);
     } else if (e.href?.startsWith("tel:")) window.location.assign(e.href);
     else if (e.href) router.push(resolveHref(e.href, account, access));
   }
+  const click = (e: Entry) => (EXPANDABLE.includes(e.kind) && expanded !== e.id ? setExpanded(e.id) : e.href || e.caseId ? go(e) : setExpanded(expanded === e.id ? null : e.id));
 
   return (
     <Dialog.Root open={open} onOpenChange={(v) => (onOpenChange(v), v || (setQ(""), setExpanded(null)))}>
@@ -100,27 +88,38 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
           <Dialog.Title className="sr-only">Szukaj w aplikacji</Dialog.Title>
           <div className="flex items-center gap-2 border-b border-line px-4">
             <Search className="h-5 w-5 shrink-0 text-brand" />
-            <input autoFocus value={q} onChange={(e) => (setQ(e.target.value), setExpanded(null))} placeholder="Wpisz słowo, np. ojcowski, Z-3, 800+, położna…" className="h-14 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted" />
+            <input autoFocus value={q} onChange={(e) => (setQ(e.target.value), setExpanded(null))} placeholder="Czego szukasz? np. co spakować do szpitala" className="h-14 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted" />
             <Dialog.Close className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-surface-2" aria-label="Zamknij">
               <X className="h-4 w-4" />
             </Dialog.Close>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {!tokens.length && <p className="px-3 py-6 text-center text-[15px] text-muted">Szukaj sekcji, pojęć, druków, poradników i telefonów. Skrót: Ctrl/⌘ + K.</p>}
-            {tokens.length > 0 && !results.length && <p className="px-3 py-6 text-center text-[15px] text-muted">Nic nie znaleziono dla „{q}”. Spróbuj innego słowa albo zapytaj ZUSię.</p>}
+            {q.trim().length < 2 && (
+              <div className="px-3 py-5">
+                <p className="text-[15px] text-muted">Szukaj w całej aplikacji: zasiłki, druki, listy, poradniki, telefony, placówki. Możesz pisać pełnym zdaniem i bez polskich znaków.</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {EXAMPLES.map((x) => (
+                    <button key={x} onClick={() => setQ(x)} className="rounded-full border border-line px-3 py-1.5 text-[14px] text-fg-2 hover:border-brand">
+                      {x}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {q.trim().length >= 2 && !results.length && <p className="px-3 py-6 text-center text-[15px] text-muted">Nic nie znaleziono dla „{q}”. Spróbuj innymi słowami albo zapytaj ZUSię.</p>}
             <ul>
-              {results.map((r) => {
+              {results.map(({ doc: r }) => {
                 const Icon = ICON[r.kind];
-                const open = expanded === r.id;
+                const isOpen = expanded === r.id;
                 return (
                   <li key={r.id}>
-                    <button onClick={() => go(r)} className={cn("flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface-2", open && "bg-brand-soft")}>
+                    <button onClick={() => click(r)} className={cn("flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface-2", isOpen && "bg-brand-soft hover:bg-brand-soft")}>
                       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
                       <span className="min-w-0 flex-1">
                         <span className="block text-[15px] leading-snug font-bold">{r.title}</span>
                         <span className="block text-[12px] text-muted">{LABEL[r.kind]}</span>
-                        {r.text && <span className={cn("mt-1 block text-[14px] leading-snug text-fg-2", !open && "line-clamp-2")}>{r.text}</span>}
-                        {open && r.href && <span className="mt-1.5 block text-[13px] font-bold text-brand">Kliknij ponownie, aby przejść →</span>}
+                        {(r.answer || r.text) && <span className={cn("mt-1 block text-[14px] leading-snug whitespace-pre-line text-fg-2", !isOpen && "line-clamp-2")}>{isOpen ? (r.answer ?? r.text) : r.text}</span>}
+                        {isOpen && (r.href || r.caseId) && <span className="mt-1.5 block text-[13px] font-bold text-brand">Kliknij ponownie, aby przejść →</span>}
                       </span>
                     </button>
                   </li>

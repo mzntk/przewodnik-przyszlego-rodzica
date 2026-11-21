@@ -1,6 +1,8 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Loader2, ShieldCheck, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Loader2, ShieldCheck, X } from "lucide-react";
+import { useApp } from "@/store/app";
+import { resolveHref } from "@/components/layout/nav";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AiBadge, LegalChip } from "@/components/ui/badge";
@@ -17,11 +19,12 @@ interface Msg {
   note?: string;
 }
 
-const SUGGESTIONS = ["Kto wypłaci mój zasiłek?", "Ile wynosi zasiłek macierzyński?", "Czy mogę łączyć rodzicielski z pracą?", "Mam zaległość w ZUS – co teraz?"];
+const SUGGESTIONS = ["Co spakować do szpitala?", "Jakie urlopy mi przysługują?", "Kto wypłaci mój zasiłek?", "Czy mogę stracić zasiłek?", "Jak dodać wizytę do kalendarza?"];
 
 export function ZusBot() {
   const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState<Msg[]>([{ role: "assistant", content: "Cześć! Jestem ZUSia 🕊️ – bocianica z ZUS. Odpowiadam prostym językiem na podstawie Poradnika ZUS dla rodziców 2026. Kwoty liczy kalkulator – podpowiem, gdzie go znaleźć." }]);
+  const { account, access } = useApp();
+  const [msgs, setMsgs] = useState<Msg[]>([{ role: "assistant", content: "Cześć! Jestem ZUSia – bocianica z ZUS. Odpowiem na pytania o zasiłki, urlopy, ciążę i formalności, a jeśli czegoś szukasz w aplikacji – zaprowadzę Cię do właściwej zakładki. Kwoty liczy kalkulator." }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -108,10 +111,11 @@ export function ZusBot() {
                       </div>
                     )}
                     {m.links && m.links.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {m.links.map((l) => (
-                          <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="rounded-lg bg-brand-soft px-2 py-1 text-[13px] font-bold text-brand hover:opacity-80">
-                            {l.label} →
+                      <div className="mt-2.5 flex flex-col gap-1.5">
+                        {m.links.map((l, li) => (
+                          <Link key={l.href} href={resolveHref(l.href, account, access)} onClick={() => setOpen(false)} className={cn("flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[14px] font-bold transition", li === 0 ? "bg-brand text-white hover:bg-brand-hover" : "bg-brand-soft text-brand hover:brightness-95")}>
+                            <span className="min-w-0 truncate">{l.label}</span>
+                            <ArrowRight className="h-4 w-4 shrink-0" />
                           </Link>
                         ))}
                       </div>

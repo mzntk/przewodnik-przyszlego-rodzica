@@ -61,7 +61,7 @@ cp .env.example .env.local   # ustaw ANTHROPIC_API_KEY
 - **Ikonka ⓘ** przy „trudnych” słowach (`Term`, `src/data/glossary.ts`) i przy polach formularzy (`Field info=…`) – m.in. „skąd wziąć liczbę ubezpieczonych”.
 - **Cytaty przepisów**: każde oznaczenie przepisu – etykieta `LegalChip` i odwołanie w tekście (`LegalText`, wykrywane automatycznie w podpowiedziach, podtytułach i opisach) – po najechaniu / dotknięciu pokazuje brzmienie przepisu (jeśli jest w bazie) i link do aktu (`src/data/legal-quotes.ts` – do weryfikacji przez prawnika przed wdrożeniem).
 - **Ryzyka dla świadczeń**: *Pieniądze → Centrum alertów → Na co uważać* (`src/data/risks.ts`) – utrata prawa, zmiana wymiaru lub wysokości.
-- **Wyszukiwarka** (lupka w nagłówku, Ctrl/⌘+K): sekcje, pojęcia, pytania ZUSi, druki, poradniki i telefony – bez polskich znaków też działa.
+- **Wyszukiwarka** (lupka w nagłówku, Ctrl/⌘+K) i **ZUSia** korzystają z jednego silnika (`src/lib/search.ts`) i jednej bazy treści (`src/data/corpus.ts`: pytania, pojęcia, druki, poradniki, listy, ryzyka, telefony, organizacje, placówki, funkcje aplikacji). Silnik rozumie odmianę („szpitala” = „szpital”), pomija słowa nieistotne, zna synonimy („spakować” → torba) i odrzuca słabe dopasowania – ZUSia mówi wtedy wprost, że nie wie.
 - **Partner** dołącza z linku zaproszenia, loguje się własnym mObywatelem (kod QR) i sam uzupełnia swoje dane.
 
 ## Maskotka i grafiki

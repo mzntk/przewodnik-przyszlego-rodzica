@@ -44,3 +44,6 @@ next-env.d.ts
 /.data
 
 !.env.example
+
+# materiały konkursowe ZUS – tylko lokalnie (nie do publicznego repozytorium)
+/wytyczne/

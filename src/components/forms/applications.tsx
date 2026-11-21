@@ -49,6 +49,9 @@ export function Applications() {
           <p className="text-[16px]">
             Twój zasiłek wypłaca <b>{e.payer.payer === "zus" ? "ZUS" : "pracodawca"}</b> – <Term id="platnik">dlaczego?</Term>
           </p>
+          <p className="w-full text-[14px] text-muted">
+            Ty jesteś <Term id="ubezpieczony">ubezpieczoną</Term>, Twój pracodawca lub zleceniodawca to <Term id="platnik-skladek">płatnik składek</Term>, a po przyznaniu zasiłku stajesz się <Term id="swiadczeniobiorca">świadczeniobiorczynią</Term>.
+          </p>
           <button onClick={() => setWhy((v) => !v)} className="flex items-center gap-1 text-[15px] font-bold text-brand" aria-expanded={why}>
             Gdzie składać dokumenty <ChevronDown className={cn("h-4 w-4 transition-transform", why && "rotate-180")} />
           </button>
@@ -105,7 +108,7 @@ export function Applications() {
           </ul>
         )}
         <a href="https://www.zus.pl/wzory-formularzy" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-bold text-brand hover:underline">
-          Wzory formularzy na zus.pl <ExternalLink className="h-4 w-4" />
+          Wzory formularzy na zus.pl (Wzory formularzy → Zasiłki) <ExternalLink className="h-4 w-4" />
         </a>
       </section>
     </div>

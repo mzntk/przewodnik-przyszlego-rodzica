@@ -167,6 +167,32 @@ Pozostałe funkcje (kalkulator, walidator, routing płatnika, terminy, Centrum a
 
 Sprawy PDF w `public/samples` (dane fikcyjne, sumy kontrolne PESEL/NIP poprawne – poza celowo błędnym dokumentem).
 
+## Materiały konkursowe
+
+Folder `wytyczne/materialy` zawiera materiały przekazane przez ZUS: pełną treść zadania i regulamin, wyciągi z Kodeksu pracy
+i ustawy zasiłkowej, rozporządzenia, Poradnik dla rodziców 2026 i załącznik z wymiarem zasiłków. Cytaty przepisów w aplikacji
+(`src/data/legal-quotes.ts`) dla KP i ustawy zasiłkowej są zgodne z tymi wyciągami (Dz.U. z 2026 r.).
+
+## Rozwiązania zewnętrzne (regulamin § 4 ust. 1)
+
+| Rozwiązanie | Zastosowanie | Licencja |
+|---|---|---|
+| Next.js, React | framework aplikacji (frontend + REST API) | MIT |
+| Tailwind CSS | style | MIT |
+| Radix UI, vaul, sonner | dymki, okna, panele, powiadomienia | MIT |
+| framer-motion | animacje | MIT |
+| zustand, zod | stan aplikacji, walidacja danych | MIT |
+| lucide-react | ikony | ISC |
+| Leaflet, react-leaflet | mapa placówek | BSD-2 / Hippocratic |
+| OpenStreetMap | podkład mapy (kafelki) | ODbL – © współtwórcy OSM |
+| pdf-lib, @pdf-lib/fontkit | generowanie wypełnionych wniosków PDF | MIT |
+| unpdf (pdf.js) | odczyt tekstu z PDF | MIT / Apache-2.0 |
+| Lato (Fontsource) | krój pisma | OFL |
+| Claude API (Anthropic, `@anthropic-ai/sdk`) | funkcje AI: mapowanie dokumentów, czat ZUSi | usługa komercyjna |
+| Google Maps (link „Wyznacz trasę”) | nawigacja do placówki (link zewnętrzny) | – |
+
+Maskotka ZUSia i logo aplikacji – materiały graficzne zespołu.
+
 ## Hierarchia źródeł
 
 Pełna treść zadania ZUS → Załącznik (wymiary/stawki 2026) → ustawa zasiłkowa → Kodeks pracy → rozp. z 27.09.2026 (Zał. 1–7, § 13 ust. 2)

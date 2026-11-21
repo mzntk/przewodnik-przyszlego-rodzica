@@ -1,13 +1,18 @@
 "use client";
 import { Switch as RSwitch, Slider as RSlider } from "radix-ui";
 import { cn } from "@/lib/utils";
+import { InfoTip } from "./info-tip";
 
-export function Field({ label, hint, children, className, htmlFor }: { label: React.ReactNode; hint?: React.ReactNode; children: React.ReactNode; className?: string; htmlFor?: string }) {
+/** Pole formularza. `info` – ikonka ⓘ z wyjaśnieniem, np. skąd wziąć daną liczbę. */
+export function Field({ label, hint, children, className, htmlFor, info }: { label: React.ReactNode; hint?: React.ReactNode; children: React.ReactNode; className?: string; htmlFor?: string; info?: { title: string; body: React.ReactNode } }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label htmlFor={htmlFor} className="text-[14px] font-medium text-fg-2">
-        {label}
-      </label>
+    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+      <span className="flex items-center gap-1.5">
+        <label htmlFor={htmlFor} className="text-[14px] font-medium text-fg-2">
+          {label}
+        </label>
+        {info && <InfoTip title={info.title}>{info.body}</InfoTip>}
+      </span>
       {children}
       {hint && <p className="text-[13px] leading-snug text-muted">{hint}</p>}
     </div>
@@ -72,7 +77,7 @@ export function Switch({ checked, onCheckedChange, label, description, id }: { c
   );
 }
 
-export function Slider({ value, onChange, min, max, step = 1, className, tone = "blue" }: { value: number; onChange: (v: number) => void; min: number; max: number; step?: number; className?: string; tone?: "blue" | "gold" | "green" }) {
+export function Slider({ value, onChange, min, max, step = 1, className, tone = "green" }: { value: number; onChange: (v: number) => void; min: number; max: number; step?: number; className?: string; tone?: "blue" | "gold" | "green" }) {
   const color = tone === "gold" ? "bg-gold" : tone === "green" ? "bg-green" : "bg-blue";
   return (
     <RSlider.Root value={[value]} min={min} max={max} step={step} onValueChange={(v) => onChange(v[0])} className={cn("relative flex h-6 w-full touch-none items-center select-none", className)}>

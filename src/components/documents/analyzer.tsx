@@ -1,6 +1,6 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertOctagon, ArrowRight, Braces, CheckCircle2, Cpu, Download, FileScan, FileText, Loader2, ScanText, ShieldCheck, ShieldX, Sparkles, UploadCloud, XCircle } from "lucide-react";
+import { AlertOctagon, ArrowRight, Braces, CheckCircle2, Download, FileScan, FileText, Loader2, ShieldCheck, ShieldX, Sparkles, UploadCloud, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -16,26 +16,19 @@ import { Sheet } from "@/components/ui/sheet";
 import { useApp } from "@/store/app";
 import { cn, dShort, zl } from "@/lib/utils";
 
-const PIPELINE = [
-  { id: "ocr", label: "Ekstrakcja tekstu / OCR", icon: ScanText, ai: false },
-  { id: "map", label: "Mapowanie do ustandaryzowanego JSON", icon: Braces, ai: true },
-  { id: "val", label: "Walidacja formalna (Zał. 1–7)", icon: ShieldCheck, ai: false },
-  { id: "eng", label: "Silnik uprawnień i kalkulator", icon: Cpu, ai: false },
-];
-
 export function Analyzer() {
   const [samples, setSamples] = useState<SampleCase[]>([]);
   const [aiAvailable, setAiAvailable] = useState(false);
-  const [useAi, setUseAi] = useState(true);
+  const [aiToggle, setUseAi] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [stage, setStage] = useState(0);
   const [res, setRes] = useState<AnalysisResponse | null>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [drag, setDrag] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { setData } = useApp();
+  const { setData, aiConsent } = useApp();
+  const useAi = aiToggle && aiConsent;
 
   useEffect(() => {
     fetch("/api/documents/samples").then((r) => r.json()).then((j) => {
@@ -47,19 +40,15 @@ export function Analyzer() {
   async function run(label: string, init: RequestInit) {
     setBusy(label);
     setRes(null);
-    setStage(0);
-    const timers = [1, 2, 3].map((i) => setTimeout(() => setStage((s) => Math.max(s, i)), i * 380));
     try {
       const r = await fetch("/api/documents/analyze", init);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
-      setStage(4);
       setRes(j);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
     } catch (e) {
       toast.error("Analiza nie powiodła się", { description: (e as Error).message });
     } finally {
-      timers.forEach(clearTimeout);
       setBusy(null);
     }
   }
@@ -140,27 +129,20 @@ export function Analyzer() {
               </button>
               <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => e.target.files?.[0] && analyzeFile(e.target.files[0])} />
               <div className="rounded-xl border border-line p-3">
-                <Switch checked={useAi && aiAvailable} onCheckedChange={setUseAi} label={<span className="inline-flex items-center gap-2">Mapowanie i OCR wspierane przez AI <Sparkles className="h-3.5 w-3.5 text-gold" /></span>} description={aiAvailable ? "Claude odczytuje skany i uzupełnia pola, których nie znalazł parser regułowy. Liczby i rozstrzygnięcia – tylko deterministyczny silnik." : "AI niedostępne (brak klucza ANTHROPIC_API_KEY) – działa parser regułowy."} />
+                <Switch checked={useAi && aiAvailable} onCheckedChange={setUseAi} label={<span className="inline-flex items-center gap-2">Mapowanie i OCR wspierane przez AI <Sparkles className="h-3.5 w-3.5 text-gold" /></span>} description={!aiConsent ? "Wyłączone w Ustawieniach → Konto (zgoda na wsparcie AI)." : aiAvailable ? "AI odczytuje skany i uzupełnia pola, których nie znalazł parser. Dane osobowe są wcześniej ukrywane. Skany (obrazy) trafiają do AI w całości – wyłącz, jeśli nie chcesz." : "AI niedostępne – działa parser regułowy."} />
               </div>
             </CardBody>
           </Card>
 
           <Card>
-            <CardHeader title="Potok przetwarzania" icon={<Cpu className="h-4 w-4" />} />
-            <CardBody className="space-y-2">
-              {PIPELINE.map((p, i) => {
-                const done = stage > i;
-                const active = !!busy && stage === i;
-                const Icon = p.icon;
-                return (
-                  <div key={p.id} className={cn("flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[15px] transition", done ? "border-line bg-surface-2" : "border-dashed border-line text-muted")}>
-                    <Icon className="h-4 w-4" />
-                    <span className="flex-1">{p.label}</span>
-                    {p.ai && <AiBadge active={useAi && aiAvailable} className="scale-90" />}
-                    {done ? <CheckCircle2 className="h-4 w-4 text-green" /> : active ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  </div>
-                );
-              })}
+            <CardHeader title="Twoje dane są bezpieczne" icon={<ShieldCheck className="h-4 w-4 text-brand" />} />
+            <CardBody>
+              <ul className="space-y-2 text-[14px] leading-snug text-fg-2">
+                <li>• Plik analizujemy w pamięci i <b>nie zapisujemy</b> go na serwerze.</li>
+                <li>• Zanim tekst trafi do AI, <b>PESEL, NIP, numer konta, adres i kontakt</b> zastępujemy znacznikami (pseudonimizacja, RODO).</li>
+                <li>• Kwoty i uprawnienia liczy wyłącznie silnik zgodny z ustawą – AI tylko odczytuje pola.</li>
+                <li>• AI możesz wyłączyć w Ustawieniach → Konto.</li>
+              </ul>
             </CardBody>
           </Card>
         </div>

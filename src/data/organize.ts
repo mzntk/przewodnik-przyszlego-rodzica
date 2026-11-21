@@ -4,28 +4,71 @@ export type PlaceType = "zus" | "usc" | "poz" | "szpital";
 export interface Place {
   id: string;
   type: PlaceType;
+  city: string;
   name: string;
   address: string;
   lat: number;
   lng: number;
   note?: string;
+  hours?: string;
+  phone?: string;
 }
 
 export const PLACE_LABELS: Record<PlaceType, string> = { zus: "Oddziały ZUS", usc: "Urzędy Stanu Cywilnego", poz: "Przychodnie POZ", szpital: "Szpitale położnicze" };
+export const PLACE_HINT: Record<PlaceType, string> = { zus: "Wnioski o zasiłki, Z-3, zaświadczenia, pomoc w PUE/eZUS", usc: "Akt urodzenia, PESEL, uznanie ojcostwa", poz: "Położna środowiskowa, szczepienia, pediatra", szpital: "Poród, szkoła rodzenia, KTG" };
+const ZUS_H = "pn 8:00–18:00, wt–pt 8:00–15:00";
+const USC_H = "pn–pt 8:00–16:00";
 
+/** Dane demonstracyjne – adresy rzeczywiste, współrzędne przybliżone. W produkcji: rejestry ZUS, USC i NFZ. */
 export const PLACES: Place[] = [
-  { id: "zus1", type: "zus", name: "ZUS I Oddział w Warszawie", address: "ul. Czerniakowska 16, 00-701 Warszawa", lat: 52.2219, lng: 21.0466 },
-  { id: "zus3", type: "zus", name: "ZUS III Oddział w Warszawie", address: "ul. Podskarbińska 25, 03-829 Warszawa", lat: 52.2427, lng: 21.0777 },
-  { id: "zusc", type: "zus", name: "ZUS – Centrala", address: "ul. Szamocka 3, 5, 01-748 Warszawa", lat: 52.2627, lng: 20.9714 },
-  { id: "usc1", type: "usc", name: "Urząd Stanu Cywilnego m.st. Warszawy", address: "ul. Andersa 5, 00-147 Warszawa", lat: 52.2459, lng: 20.9993 },
-  { id: "usc2", type: "usc", name: "USC – Delegatura Praga-Południe", address: "ul. Grochowska 274, 03-841 Warszawa", lat: 52.2492, lng: 21.0634 },
-  { id: "sz1", type: "szpital", name: "Szpital Specjalistyczny im. św. Zofii", address: "ul. Żelazna 90, 01-004 Warszawa", lat: 52.2368, lng: 20.9886, note: "III stopień referencyjności" },
-  { id: "sz2", type: "szpital", name: "Szpital Kliniczny im. ks. Anny Mazowieckiej", address: "ul. Karowa 2, 00-315 Warszawa", lat: 52.2398, lng: 21.0237, note: "III stopień – ciąże wysokiego ryzyka" },
-  { id: "sz3", type: "szpital", name: "Szpital Bielański", address: "ul. Cegłowska 80, 01-809 Warszawa", lat: 52.2846, lng: 20.9549 },
-  { id: "poz1", type: "poz", name: "Przychodnia POZ – Mokotów", address: "ul. Puławska 145, 02-715 Warszawa", lat: 52.1934, lng: 21.0221, note: "Położna środowiskowa – wizyty patronażowe" },
-  { id: "poz2", type: "poz", name: "Przychodnia POZ – Wola", address: "ul. Wolska 37, 01-201 Warszawa", lat: 52.2318, lng: 20.9625, note: "Położna środowiskowa – wizyty patronażowe" },
-  { id: "poz3", type: "poz", name: "Przychodnia POZ – Praga", address: "ul. Targowa 15, 03-728 Warszawa", lat: 52.2526, lng: 21.0388, note: "Położna środowiskowa – wizyty patronażowe" },
+  // Warszawa
+  { id: "zus1", type: "zus", city: "Warszawa", name: "ZUS I Oddział w Warszawie", address: "ul. Czerniakowska 16", lat: 52.2219, lng: 21.0466, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "zus2", type: "zus", city: "Warszawa", name: "ZUS II Oddział w Warszawie", address: "ul. Senatorska 6", lat: 52.2427, lng: 21.0108, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "zus3", type: "zus", city: "Warszawa", name: "ZUS III Oddział w Warszawie", address: "ul. Podskarbińska 25", lat: 52.2427, lng: 21.0777, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "zusc", type: "zus", city: "Warszawa", name: "ZUS – Centrala", address: "ul. Szamocka 3, 5", lat: 52.2627, lng: 20.9714, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "usc1", type: "usc", city: "Warszawa", name: "Urząd Stanu Cywilnego m.st. Warszawy", address: "ul. Andersa 5", lat: 52.2459, lng: 20.9993, hours: USC_H },
+  { id: "usc2", type: "usc", city: "Warszawa", name: "USC – Delegatura Praga-Południe", address: "ul. Grochowska 274", lat: 52.2492, lng: 21.0634, hours: USC_H },
+  { id: "usc3", type: "usc", city: "Warszawa", name: "USC – Delegatura Mokotów", address: "ul. Rakowiecka 25/27", lat: 52.2034, lng: 21.0085, hours: USC_H },
+  { id: "sz1", type: "szpital", city: "Warszawa", name: "Szpital Specjalistyczny im. św. Zofii", address: "ul. Żelazna 90", lat: 52.2368, lng: 20.9886, note: "III stopień referencyjności" },
+  { id: "sz2", type: "szpital", city: "Warszawa", name: "Szpital Kliniczny im. ks. Anny Mazowieckiej", address: "ul. Karowa 2", lat: 52.2398, lng: 21.0237, note: "III stopień – ciąże wysokiego ryzyka" },
+  { id: "sz3", type: "szpital", city: "Warszawa", name: "Szpital Bielański", address: "ul. Cegłowska 80", lat: 52.2846, lng: 20.9549 },
+  { id: "sz4", type: "szpital", city: "Warszawa", name: "Szpital Specjalistyczny Inflancka", address: "ul. Inflancka 6", lat: 52.2585, lng: 20.9937, note: "Szkoła rodzenia" },
+  { id: "sz5", type: "szpital", city: "Warszawa", name: "Szpital Specjalistyczny Świętej Rodziny", address: "ul. Madalińskiego 25", lat: 52.2058, lng: 21.0108 },
+  { id: "poz1", type: "poz", city: "Warszawa", name: "Przychodnia POZ – Mokotów", address: "ul. Puławska 145", lat: 52.1934, lng: 21.0221, note: "Położna środowiskowa" },
+  { id: "poz2", type: "poz", city: "Warszawa", name: "Przychodnia POZ – Wola", address: "ul. Wolska 37", lat: 52.2318, lng: 20.9625, note: "Położna środowiskowa" },
+  { id: "poz3", type: "poz", city: "Warszawa", name: "Przychodnia POZ – Praga", address: "ul. Targowa 15", lat: 52.2526, lng: 21.0388, note: "Położna środowiskowa" },
+  { id: "poz4", type: "poz", city: "Warszawa", name: "Przychodnia POZ – Ursynów", address: "ul. Wasilkowskiego 7", lat: 52.1500, lng: 21.0476, note: "Położna, pediatra" },
+  { id: "poz5", type: "poz", city: "Warszawa", name: "Przychodnia POZ – Bielany", address: "ul. Szegedyńska 11", lat: 52.2768, lng: 20.9480, note: "Położna środowiskowa" },
+  // Kraków
+  { id: "kr-zus", type: "zus", city: "Kraków", name: "ZUS Oddział w Krakowie", address: "ul. Pędzichów 27", lat: 50.0717, lng: 19.9409, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "kr-usc", type: "usc", city: "Kraków", name: "Urząd Stanu Cywilnego w Krakowie", address: "ul. Lubelska 27", lat: 50.0745, lng: 19.9335, hours: USC_H },
+  { id: "kr-sz", type: "szpital", city: "Kraków", name: "Szpital Uniwersytecki w Krakowie", address: "ul. Jakubowskiego 2", lat: 50.0105, lng: 20.0006, note: "III stopień referencyjności" },
+  { id: "kr-sz2", type: "szpital", city: "Kraków", name: "Szpital im. S. Żeromskiego", address: "os. Na Skarpie 66", lat: 50.0738, lng: 20.0353 },
+  { id: "kr-poz", type: "poz", city: "Kraków", name: "Przychodnia POZ – Krowodrza", address: "ul. Kazimierza Wielkiego 41", lat: 50.0757, lng: 19.9210, note: "Położna środowiskowa" },
+  // Gdańsk
+  { id: "gd-zus", type: "zus", city: "Gdańsk", name: "ZUS Oddział w Gdańsku", address: "ul. Chmielna 27/33", lat: 54.3463, lng: 18.6584, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "gd-usc", type: "usc", city: "Gdańsk", name: "Urząd Stanu Cywilnego w Gdańsku", address: "ul. Nowe Ogrody 8/12", lat: 54.3491, lng: 18.6406, hours: USC_H },
+  { id: "gd-sz", type: "szpital", city: "Gdańsk", name: "Uniwersyteckie Centrum Kliniczne – Położnictwo", address: "ul. Smoluchowskiego 17", lat: 54.3733, lng: 18.6274, note: "III stopień referencyjności" },
+  { id: "gd-poz", type: "poz", city: "Gdańsk", name: "Przychodnia POZ – Wrzeszcz", address: "ul. Grunwaldzka 107", lat: 54.3817, lng: 18.6060, note: "Położna środowiskowa" },
+  // Wrocław
+  { id: "wr-zus", type: "zus", city: "Wrocław", name: "ZUS Oddział we Wrocławiu", address: "ul. Pretficza 11", lat: 51.0925, lng: 17.0094, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "wr-usc", type: "usc", city: "Wrocław", name: "Urząd Stanu Cywilnego we Wrocławiu", address: "ul. Włodkowica 20", lat: 51.1086, lng: 17.0258, hours: USC_H },
+  { id: "wr-sz", type: "szpital", city: "Wrocław", name: "Uniwersytecki Szpital Kliniczny", address: "ul. Borowska 213", lat: 51.0858, lng: 17.0352, note: "III stopień referencyjności" },
+  { id: "wr-poz", type: "poz", city: "Wrocław", name: "Przychodnia POZ – Krzyki", address: "ul. Powstańców Śląskich 95", lat: 51.0899, lng: 17.0187, note: "Położna środowiskowa" },
+  // Poznań
+  { id: "po-zus", type: "zus", city: "Poznań", name: "ZUS Oddział w Poznaniu", address: "ul. Dąbrowskiego 12", lat: 52.4093, lng: 16.9131, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "po-usc", type: "usc", city: "Poznań", name: "Urząd Stanu Cywilnego w Poznaniu", address: "ul. Libelta 16/20", lat: 52.4119, lng: 16.9204, hours: USC_H },
+  { id: "po-sz", type: "szpital", city: "Poznań", name: "Ginekologiczno-Położniczy Szpital Kliniczny", address: "ul. Polna 33", lat: 52.4207, lng: 16.8899, note: "III stopień referencyjności" },
+  { id: "po-poz", type: "poz", city: "Poznań", name: "Przychodnia POZ – Jeżyce", address: "ul. Dąbrowskiego 77", lat: 52.4148, lng: 16.8960, note: "Położna środowiskowa" },
+  // Łódź
+  { id: "lo-zus", type: "zus", city: "Łódź", name: "ZUS I Oddział w Łodzi", address: "ul. Zamenhofa 2", lat: 51.7621, lng: 19.4583, hours: ZUS_H, phone: "22 560 16 00" },
+  { id: "lo-usc", type: "usc", city: "Łódź", name: "Urząd Stanu Cywilnego w Łodzi", address: "ul. Piotrkowska 153", lat: 51.7593, lng: 19.4589, hours: USC_H },
+  { id: "lo-sz", type: "szpital", city: "Łódź", name: "Instytut Centrum Zdrowia Matki Polki", address: "ul. Rzgowska 281/289", lat: 51.7066, lng: 19.4802, note: "III stopień referencyjności" },
+  { id: "lo-poz", type: "poz", city: "Łódź", name: "Przychodnia POZ – Śródmieście", address: "ul. Kopernika 38", lat: 51.7600, lng: 19.4440, note: "Położna środowiskowa" },
 ];
+
+export const CITIES = [...new Set(PLACES.map((p) => p.city))];
+export const CITY_CENTER: Record<string, [number, number]> = { Warszawa: [52.235, 21.01], Kraków: [50.0614, 19.9366], Gdańsk: [54.352, 18.6466], Wrocław: [51.1079, 17.0385], Poznań: [52.4064, 16.9252], Łódź: [51.7592, 19.456] };
 
 export const CHECKLISTS = {
   torbaMama: { title: "Torba do szpitala – dla mamy", items: ["Dowód osobisty, karta ciąży, wyniki badań (grupa krwi, GBS, WR, HBs, HIV)", "Plan porodu (opcjonalnie)", "2–3 koszule nocne rozpinane z przodu", "Szlafrok i klapki pod prysznic", "Biustonosze do karmienia i wkładki laktacyjne", "Podpaski poporodowe i jednorazowe majtki siateczkowe", "Kosmetyki, ręcznik, gumki do włosów", "Woda niegazowana, przekąski", "Ładowarka do telefonu (długi kabel)", "Ubranie na wyjście (rozmiar „ciążowy”)"] },

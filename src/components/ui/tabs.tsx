@@ -20,9 +20,9 @@ export function MotionTabs<T extends string>({ tabs, value, onChange, layoutId, 
             role="tab"
             aria-selected={active}
             onClick={() => onChange(t.id)}
-            className={cn("relative flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-[15px] font-medium transition-colors", active ? "text-fg" : "text-muted hover:text-fg-2")}
+            className={cn("relative flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-[15px] font-medium transition-colors", active ? "font-bold text-brand" : "text-muted hover:text-fg-2")}
           >
-            {active && <motion.span layoutId={layoutId} className="absolute inset-0 rounded-xl bg-surface-3" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
+            {active && <motion.span layoutId={layoutId} className="absolute inset-0 rounded-xl bg-brand-soft" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
             <span className="relative flex items-center gap-2">
               {t.icon}
               {t.label}

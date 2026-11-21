@@ -14,9 +14,28 @@ import { ZusBot } from "@/components/bot/zus-bot";
 import { Button } from "@/components/ui/button";
 import { CaseSheet } from "@/components/cases/case-ui";
 import { NotificationBell, useBackgroundSync } from "@/components/notifications/notifications";
+import { SearchButton } from "./search-dialog";
 
+/** Logo ZUS – zawsze w oryginalnych proporcjach (wysokość ustalana klasą, szerokość automatyczna, bez rozciągania). */
 export function ZusLogo({ className, priority }: { className?: string; priority?: boolean }) {
-  return <Image src="/logo-zus.png" alt="Zakład Ubezpieczeń Społecznych" width={4200} height={944} priority={priority} className={cn("h-7 w-auto", className)} />;
+  return <Image src="/logo-zus.png" alt="Zakład Ubezpieczeń Społecznych" width={4200} height={944} priority={priority} className={cn("h-7 w-auto max-w-none shrink-0 object-contain", className)} />;
+}
+
+/** Logo aplikacji (kwadratowe 1:1) – rozmiar podajemy jedną klasą `size-*`, proporcje są zablokowane. */
+export function AppLogo({ className, priority }: { className?: string; priority?: boolean }) {
+  return <Image src="/brand/logo-aplikacji.png" alt="Przewodnik Przyszłego Rodzica – logo" width={512} height={512} priority={priority} className={cn("aspect-square size-10 shrink-0 rounded-xl object-contain", className)} />;
+}
+
+export function AppBrand({ compact }: { compact?: boolean }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <AppLogo className={compact ? "size-9" : "size-11"} priority />
+      <span className="min-w-0 leading-tight">
+        <span className={cn("block truncate font-black tracking-tight text-brand", compact ? "text-[15px]" : "text-[16px]")}>Przewodnik</span>
+        <span className={cn("block truncate font-bold text-fg-2", compact ? "text-[12px]" : "text-[13px]")}>Przyszłego Rodzica</span>
+      </span>
+    </span>
+  );
 }
 
 export const homeFor = (account: Account | null, onboarded: boolean) => (account === "admin" ? "/admin" : account === "mama" && !onboarded ? "/start" : "/panel");
@@ -81,9 +100,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
   const mounted = useMounted();
-  const { loggedIn, account, access, onboarded, profileId, logout } = useApp();
+  const { loggedIn, account, access, onboarded, profileId, logout, invite } = useApp();
   const [moreOpen, setMoreOpen] = useState(false);
   const isOnboarded = onboarded.includes(profileKey(profileId));
+  const partnerSetup = account === "tata" && !!invite?.joinedAt && !invite.completedAt;
   const bare = path === "/" || path.startsWith("/start");
 
   // Strażnik: niezalogowani → logowanie; mama bez konfiguracji → kreator
@@ -91,8 +111,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!mounted) return;
     if (!loggedIn && path !== "/") router.replace("/");
     else if (loggedIn && account === "mama" && !isOnboarded && !path.startsWith("/start") && path !== "/") router.replace("/start");
-    else if (loggedIn && path.startsWith("/start") && account !== "mama") router.replace(homeFor(account, true));
-  }, [mounted, loggedIn, account, isOnboarded, path, router]);
+    else if (loggedIn && partnerSetup && !path.startsWith("/start") && path !== "/") router.replace("/start");
+    else if (loggedIn && path.startsWith("/start") && account !== "mama" && !partnerSetup) router.replace(homeFor(account, true));
+  }, [mounted, loggedIn, account, isOnboarded, partnerSetup, path, router]);
 
   if (bare) return <div className="min-h-dvh bg-bg">{children}</div>;
   // Przed hydratacją renderujemy segment strony ukryty (prerender/instant navigation), po hydratacji działa strażnik
@@ -111,9 +132,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <Signed>
       <div className="min-h-dvh bg-bg">
         <aside className="fixed inset-y-0 left-0 z-30 hidden w-[272px] flex-col border-r border-line bg-white px-3 py-6 lg:flex">
-          <Link href="/panel" className="flex flex-col gap-2 px-3" aria-label="Start">
-            <ZusLogo className="h-8" />
-            <span className="text-[13px] text-muted">Zasiłkowy Przewodnik Przyszłego Rodzica</span>
+          <Link href={homeFor(account, true)} className="px-3" aria-label="Start">
+            <AppBrand />
           </Link>
           <div className="mt-8 flex-1 overflow-y-auto">
             <NavGroups />
@@ -123,11 +143,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <header className="sticky top-0 z-20 border-b border-line bg-white lg:ml-[272px]">
           <div className="mx-auto flex h-16 max-w-[1180px] items-center justify-between gap-3 px-4 sm:px-8">
-            <Link href="/panel" className="lg:hidden" aria-label="Start">
-              <ZusLogo className="h-7" />
+            <Link href={homeFor(account, true)} className="min-w-0 lg:hidden" aria-label="Start">
+              <AppBrand compact />
             </Link>
             <div className="hidden lg:block" />
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-0.5">
+              <SearchButton />
               {account !== "admin" && <NotificationBell />}
               <button onClick={() => setMoreOpen(true)} className="grid h-10 w-10 place-items-center rounded-lg text-fg-2 hover:bg-surface-2 lg:hidden" aria-label="Menu">
                 <Menu className="h-5 w-5" />
@@ -137,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="lg:ml-[272px]">
-          <div className="mx-auto max-w-[1180px] px-4 pt-8 pb-32 sm:px-8 sm:pt-10 lg:pb-20">
+          <div className="mx-auto max-w-[1180px] min-w-0 px-4 pt-6 pb-36 sm:px-8 sm:pt-10 lg:pb-20">
             {allowed ? (
               children
             ) : (
@@ -158,9 +179,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             const active = path === n.href || path.startsWith(`${n.href}/`);
             const Icon = n.icon;
             return (
-              <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className={cn("flex flex-1 flex-col items-center gap-1 rounded-lg py-1.5 text-[12px]", active ? "font-bold text-brand" : "text-muted")}>
+              <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className={cn("flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg py-1.5 text-[12px]", active ? "font-bold text-brand" : "text-muted")}>
                 <Icon className="h-5 w-5" strokeWidth={active ? 2.2 : 1.8} />
-                {n.short}
+                <span className="max-w-full truncate">{n.short}</span>
               </Link>
             );
           })}

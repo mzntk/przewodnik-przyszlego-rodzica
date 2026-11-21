@@ -7,6 +7,7 @@ import { PageHeader, Skeleton } from "@/components/ui/misc";
 import { Term } from "@/components/ui/term";
 import { CaseRow, caseStatus, useCases } from "@/components/cases/case-ui";
 import { GUIDES } from "@/data/documents";
+import { DocIcon } from "@/components/cases/doc-icon";
 import type { CaseStatus } from "@/models/case-status";
 import { cn } from "@/lib/utils";
 
@@ -92,15 +93,18 @@ export function Applications() {
           Inne druki i wzory ({otherGuides.length}) <ChevronDown className={cn("h-4 w-4 transition-transform", others && "rotate-180")} />
         </button>
         {others && (
-          <ul className="mt-3 grid gap-x-8 gap-y-2 sm:grid-cols-2">
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {otherGuides.map((g) => (
-              <li key={g.id} className="text-[15px] text-fg-2">
-                <span className="font-bold">{g.glossary ? <Term id={g.glossary}>{g.code}</Term> : g.code}</span> – {g.name}
+              <li key={g.id}>
+                <button onClick={() => openCase(g.id)} className="flex w-full items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-left transition hover:border-brand">
+                  <DocIcon id={g.id} code={g.code} />
+                  <span className="min-w-0 flex-1 text-[15px] leading-snug text-fg-2">{g.name}</span>
+                </button>
               </li>
             ))}
           </ul>
         )}
-        <a href="https://www.zus.pl" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-bold text-brand hover:underline">
+        <a href="https://www.zus.pl/wzory-formularzy" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-bold text-brand hover:underline">
           Wzory formularzy na zus.pl <ExternalLink className="h-4 w-4" />
         </a>
       </section>

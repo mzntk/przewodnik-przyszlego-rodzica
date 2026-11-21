@@ -1,4 +1,4 @@
-# Zasiłkowy Przewodnik Przyszłego Rodzica · ZUS 2026
+# Przewodnik Przyszłego Rodzica · ZUS 2026
 
 MVP aplikacji webowej (RWD) na HackNation 2026 – wyzwanie Zakładu Ubezpieczeń Społecznych.
 Przeprowadza osoby planujące rodzicielstwo, kobiety w ciąży, rodziców biologicznych, adopcyjnych i rodziny zastępcze
@@ -51,13 +51,47 @@ cp .env.example .env.local   # ustaw ANTHROPIC_API_KEY
 ## Sprawy, statusy i powiadomienia
 
 - **Brak ręcznego odhaczania dokumentów urzędowych.** Każda sprawa ma status nadawany przez system (symulacja synchronizacji z ZUS co 10 s, `src/services/case-sync.ts`): *Niezłożony → Wysłany / zarejestrowany → W trakcie weryfikacji → Przyznany* albo *Wymaga uzupełnienia*. Tempo demonstracyjne jest przyspieszone (15 s / 45 s).
-- **Panel sprawy** (klik w dowolny wniosek): status i etapy, a pod nimi trzy sekcje – *Jak wypełnić* (z najczęstszymi błędami), *Co przygotować wcześniej*, *Wymagane załączniki* dopasowane do sytuacji (stan prawny po 24.10.2026). Do tego wypełniony PDF i wysyłka (symulacja). Treści: `src/data/documents.ts`.
-- **Powiadomienia**: dzwonek z licznikiem, toasty w rogu ekranu i opcjonalne systemowe powiadomienia przeglądarki (Notification API). Przypomnienia 14, 7 i 3 dni przed terminem oraz w dniu terminu, a także o każdej zmianie statusu. Włączanie i wyłączanie: *Ustawienia → Powiadomienia*.
-- **Tooltipy** przy nazwach świadczeń, urlopów i symbolach druków: „Co to jest?” i „Dla kogo?” – po najechaniu, focusie z klawiatury lub dotknięciu. Słownik: `src/data/glossary.ts`.
+- **Panel sprawy** (klik w dowolny wniosek, także z listy „Inne druki” i z wyszukiwarki): status i etapy oraz trzy zakładki:
+  *Jak załatwić* (instrukcja, błędy, załączniki, wzór i przykład wypełnienia z `public/formularze`), *Podgląd wniosku*
+  (kartka wypełniona danymi z profilu, edycja każdego pola przed pobraniem PDF) i *Symulacja* (co się stanie po wysłaniu –
+  wariant kompletny / z brakami; nie zmienia prawdziwego statusu). Treści: `src/data/documents.ts`, ikony druków: `src/components/cases/doc-icon.tsx`.
+- **Powiadomienia**: dzwonek z licznikiem, krótkie toasty (ok. 2,5–3,5 s), e-mail (wersja webowa, `POST /api/notify/email` – symulacja)
+  i push (Notification API w przeglądarce; w aplikacji mobilnej APNs/FCM). Użytkownik wybiera **osobno dla każdego tematu**
+  (terminy, statusy, odpowiedzi ZUS, wizyty, tydzień ciąży, ryzyka) i kanału: *Ustawienia → Powiadomienia*.
+- **Wiadomości z ZUS**: *Ustawienia → Wiadomości z ZUS*. Odpowiedź (symulowana po ok. 9 s) trafia do tej skrzynki, pod dzwonek i na e-mail.
+- **Ikonka ⓘ** przy „trudnych” słowach (`Term`, `src/data/glossary.ts`) i przy polach formularzy (`Field info=…`) – m.in. „skąd wziąć liczbę ubezpieczonych”.
+- **Cytaty przepisów**: najechanie / dotknięcie oznaczenia artykułu (`LegalChip`) pokazuje brzmienie przepisu i link do ISAP (`src/data/legal-quotes.ts` – do weryfikacji przez prawnika przed wdrożeniem).
+- **Ryzyka dla świadczeń**: *Pieniądze → Centrum alertów → Na co uważać* (`src/data/risks.ts`) – utrata prawa, zmiana wymiaru lub wysokości.
+- **Wyszukiwarka** (lupka w nagłówku, Ctrl/⌘+K): sekcje, pojęcia, pytania ZUSi, druki, poradniki i telefony – bez polskich znaków też działa.
+- **Partner** dołącza z linku zaproszenia, loguje się własnym mObywatelem (kod QR) i sam uzupełnia swoje dane.
+
+## Maskotka i grafiki
+
+| Plik | Użycie |
+|---|---|
+| `public/brand/zusia.png` | ZUSia z identyfikatorem – awatar czatu |
+| `public/brand/zusia-pakunek.png` | ZUSia z pakunkiem ZUS – ekran logowania; źródło favicony `src/app/icon.png` |
+| `public/brand/zusia-lot.png`, `zusia-lot.gif` | ZUSia w locie – ekran błędu |
+| `public/brand/logo-aplikacji.png` | Logo aplikacji (1:1) – nagłówek, menu, `src/app/apple-icon.png` |
+
+Logo zawsze renderujemy z zablokowanymi proporcjami (`aspect-square` + `object-contain`; logo ZUS: `h-* w-auto`).
+
+## Wzory formularzy
+
+PDF-y ze strony zus.pl wrzucamy do `public/formularze` (nazwy w `public/formularze/README.md`). API `GET /api/forms`
+wykrywa je automatycznie, a panel sprawy pokazuje przyciski „Pusty wzór” i „Przykład wypełnienia”.
+
+## Potok analizy dokumentu (tylko dokumentacja – usunięty z UI)
+
+1. **Ekstrakcja tekstu** (`unpdf`); PDF bez warstwy tekstowej = skan.
+2. **Pseudonimizacja** (`src/services/ai/privacy.ts`): PESEL, NIP, nr rachunku, e-mail, telefon, seria dowodu, nazwiska i adresy z etykiet → tokeny `[PESEL_1]`…
+3. **Mapowanie do JSON** – parser regułowy + opcjonalnie AI (Structured Output); tokeny odtwarzane po stronie serwera.
+4. **Walidacja formalna** (Zał. 1–7 rozporządzenia).
+5. **Silnik uprawnień i kalkulator** – deterministyczny werdykt.
 
 ## Wygląd
 
-Jasny motyw (białe tło, karty w delikatnej szarości, jedno obramowanie bez cieni), czcionka **Lato** z fallbackiem Helvetica, akcent w zieleni ZUS, kontrast tekstu ≥ 4.5:1, tekst podstawowy 16 px. Zgodnie z wytycznymi [impeccable](https://github.com/pbakaus/impeccable): bez gradientów, rozmyć, emoji w roli ikon i zagnieżdżonych kart; ruch krótki (ease-out) z obsługą `prefers-reduced-motion`.
+Jasny motyw (białe tło, karty w delikatnej szarości, jedno obramowanie bez cieni), czcionka **Lato** z fallbackiem Helvetica, akcent w zieleni R51 G118 B60 (`#33763C`, zmienna `--brand`), kontrast tekstu ≥ 4.5:1, tekst podstawowy 16 px. Zgodnie z wytycznymi [impeccable](https://github.com/pbakaus/impeccable): bez gradientów, rozmyć, emoji w roli ikon i zagnieżdżonych kart; ruch krótki (ease-out) z obsługą `prefers-reduced-motion`.
 
 ## Architektura
 
@@ -111,11 +145,18 @@ AI (model Claude, `claude-opus-5-5`) jest używane **wyłącznie** w dwóch miej
 1. **Mapowanie dokumentów (Moduł 4)** – `src/services/ai/extract.ts`: Structured Output do ustandaryzowanego JSON
    oraz odczyt skanów bez warstwy tekstowej (OCR przez model wizyjny). Wynik jest scalany z parserem regułowym
    (identyfikatory z poprawną sumą kontrolną mają pierwszeństwo), a następnie walidowany deterministycznie.
-2. **ZUS-bot** – `src/services/ai/bot.ts`: odpowiedzi prostym językiem wyłącznie na podstawie bazy wiedzy (streszczenia
+2. **ZUSia (czat)** – `src/services/ai/bot.ts`: odpowiedzi prostym językiem wyłącznie na podstawie bazy wiedzy (streszczenia
    Poradnika ZUS 2026); bez klucza API działa wyszukiwanie regułowe. Włączony server-side fallback przy odmowie modelu.
 
+**Bezpieczeństwo i RODO** (`src/services/ai/privacy.ts`, `src/app/api/bot/route.ts`):
+- walidacja wejścia (zod), limit 1000 znaków i 20 zapytań/min na IP, usuwanie znaków niewidocznych;
+- wykrywanie prób prompt injection (zmiana roli, ujawnienie instrukcji) → odpowiedź bez wywołania modelu;
+- pytanie użytkownika opakowane w `<pytanie_uzytkownika>` i traktowane jako dane; nadrzędne zasady w promptcie systemowym;
+- filtr odpowiedzi (tylko linki zus.pl / gov.pl / ISAP, tylko wewnętrzne skróty z białej listy);
+- dane osobowe ukrywane przed wysłaniem do modelu; zgoda na AI do wyłączenia w *Ustawienia → Konto*.
+
 **AI nigdy nie liczy kwot ani nie rozstrzyga o uprawnieniach** – robi to `services/engine` (pokryty testami).
-Pozostałe funkcje (kalkulator, walidator, routing płatnika, terminy, Red Flags, panel admina) są w 100% deterministyczne.
+Pozostałe funkcje (kalkulator, walidator, routing płatnika, terminy, Centrum alertów, panel admina) są w 100% deterministyczne.
 
 ## Profile testowe (3-minutowe demo)
 

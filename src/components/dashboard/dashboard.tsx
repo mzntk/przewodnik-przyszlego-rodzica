@@ -7,6 +7,7 @@ import { useCalculation } from "@/hooks/use-calculation";
 import { useToday } from "@/hooks/use-mounted";
 import { useApp } from "@/store/app";
 import { buildPriorities, type Priority } from "@/lib/priorities";
+import { resolveHref } from "@/components/layout/nav";
 import { PregnancyWidget } from "@/components/pregnancy/pregnancy-widget";
 import { CaseRow, useCases } from "@/components/cases/case-ui";
 import { AddPartnerSheet } from "@/components/partner/add-partner";
@@ -41,7 +42,7 @@ function PriorityRow({ p, onOpen }: { p: Priority; onOpen: () => void }) {
 
 function Priorities({ forDad }: { forDad?: boolean }) {
   const router = useRouter();
-  const { data, cases, openCase } = useApp();
+  const { data, cases, openCase, account, access } = useApp();
   const { result } = useCalculation();
   const { items } = useCases();
   const today = useToday();
@@ -60,7 +61,7 @@ function Priorities({ forDad }: { forDad?: boolean }) {
         <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
           {shown.map((p) => (
             <li key={p.id} className="p-1">
-              <PriorityRow p={p} onOpen={() => (p.caseId ? openCase(p.caseId) : router.push(p.href))} />
+              <PriorityRow p={p} onOpen={() => (p.caseId ? openCase(p.caseId) : router.push(resolveHref(p.href, account, access)))} />
             </li>
           ))}
         </ul>
@@ -75,7 +76,7 @@ function Priorities({ forDad }: { forDad?: boolean }) {
 }
 
 function CaseStatuses({ title, limit = SHOWN }: { title: string; limit?: number }) {
-  const { openCase, casesSyncedAt } = useApp();
+  const { openCase, casesSyncedAt, account, access } = useApp();
   const { items, ready } = useCases();
   if (!ready) return <Skeleton className="h-48" />;
   return (
@@ -84,7 +85,7 @@ function CaseStatuses({ title, limit = SHOWN }: { title: string; limit?: number 
         <h2 id="sprawy" className="text-[21px] font-bold">
           {title}
         </h2>
-        <Link href="/wnioski" className="text-[15px] font-bold text-brand hover:underline">
+        <Link href={resolveHref("/wnioski", account, access)} className="shrink-0 text-[15px] font-bold text-brand hover:underline">
           Wszystkie ({items.length})
         </Link>
       </div>
@@ -106,7 +107,7 @@ export function Dashboard() {
 }
 
 function MamaHome() {
-  const { data } = useApp();
+  const { data, invite } = useApp();
   const [addPartner, setAddPartner] = useState(false);
   return (
     <div className="space-y-10">
@@ -121,7 +122,17 @@ function MamaHome() {
         </div>
         <div className="space-y-4">
           <PregnancyWidget />
-          {!data.father && (
+          {invite && !invite.completedAt && (
+            <button onClick={() => setAddPartner(true)} className="flex w-full items-center gap-4 rounded-2xl border border-gold/40 bg-gold-soft px-5 py-4 text-left">
+              <UserPlus className="h-5 w-5 shrink-0 text-gold" />
+              <span className="flex-1">
+                <span className="block text-[16px] font-bold">Czekamy na {invite.partnerName || "partnera"}</span>
+                <span className="block text-[14px] text-fg-2">{invite.joinedAt ? "Zalogował się – uzupełnia swoje dane." : "Link zaproszenia jeszcze nie został użyty. Wyślij go ponownie."}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 text-muted" />
+            </button>
+          )}
+          {!data.father && !invite && (
             <button onClick={() => setAddPartner(true)} className="flex w-full items-center gap-4 rounded-2xl border border-dashed border-line-strong px-5 py-4 text-left transition-colors hover:bg-surface">
               <UserPlus className="h-5 w-5 shrink-0 text-brand" />
               <span className="flex-1">

@@ -35,6 +35,7 @@ export const CHARITIES: Charity[] = [
 ];
 
 export const HOTLINES = [
+  { name: "Infolinia ZUS (COT)", number: "22 560 16 00", note: "Pn–pt 7:00–18:00 · zasiłki, wnioski, PUE/eZUS", tone: "blue" as const },
   { name: "Numer alarmowy", number: "112", note: "Zagrożenie życia lub zdrowia", tone: "red" as const },
   { name: "Centrum Wsparcia (kryzys psychiczny)", number: "800 70 2222", note: "Całodobowo, bezpłatnie", tone: "orange" as const },
   { name: "Antydepresyjny Telefon Zaufania", number: "22 484 88 01", note: "Fundacja ITAKA", tone: "gold" as const },
@@ -68,3 +69,14 @@ export const OFFICIAL_LINKS = [
   { label: "PIP – rodzicielstwo", href: "https://www.pip.gov.pl/dla-pracodawcow/porady-prawne/rodzicielstwo", org: "PIP" },
   { label: "Rejestr stanu cywilnego – odpisy aktów", href: "https://www.gov.pl/web/cyfryzacja/rejestr-stanu-cywilnego", org: "gov.pl" },
 ];
+
+/** Wszystkie numery telefonów z aplikacji (infolinie + organizacje), bez duplikatów i bez numerów już pokazanych wyżej. */
+export function allPhones(exclude: string[] = []): { name: string; number: string; note: string }[] {
+  const key = (n: string) => n.replace(/\D/g, "");
+  const skip = new Set(exclude.map(key));
+  const out = new Map<string, { name: string; number: string; note: string }>();
+  for (const h of HOTLINES) out.set(key(h.number), { name: h.name, number: h.number, note: h.note });
+  for (const c of CHARITIES) if (c.phone && !out.has(key(c.phone))) out.set(key(c.phone), { name: c.name, number: c.phone, note: c.description.split(/[.;]/)[0] });
+  out.set(key("800 70 2222"), out.get(key("800 70 2222")) ?? { name: "Centrum Wsparcia", number: "800 70 2222", note: "Całodobowo" });
+  return [...out.entries()].filter(([k]) => !skip.has(k)).map(([, v]) => v);
+}

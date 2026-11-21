@@ -28,7 +28,7 @@ export async function buildFormPdf(f: PdfForm): Promise<Uint8Array> {
   const R = await doc.embedFont(fonts.r, { subset: true });
   const B = await doc.embedFont(fonts.b, { subset: true });
   doc.setTitle(`${f.code} – ${f.title}`);
-  doc.setCreator("Zasiłkowy Przewodnik Przyszłego Rodzica");
+  doc.setCreator("Przewodnik Przyszłego Rodzica");
   let page = doc.addPage([595, 842]);
   const ink = rgb(0.08, 0.1, 0.14);
   const muted = rgb(0.42, 0.45, 0.5);
@@ -88,7 +88,7 @@ export async function buildFormPdf(f: PdfForm): Promise<Uint8Array> {
   page.drawLine({ start: { x: 360, y }, end: { x: 545, y }, thickness: 0.6, color: muted });
   y -= 12;
   write("(podpis wnioskodawcy)", 410, 8, false, muted);
-  doc.getPages().forEach((p, i, arr) => p.drawText(`Wygenerowano w Zasiłkowym Przewodniku · strona ${i + 1}/${arr.length}`, { x: 40, y: 28, size: 7, font: R, color: muted }));
+  doc.getPages().forEach((p, i, arr) => p.drawText(`Wygenerowano w Przewodniku Przyszłego Rodzica · strona ${i + 1}/${arr.length}`, { x: 40, y: 28, size: 7, font: R, color: muted }));
   return doc.save();
 }
 

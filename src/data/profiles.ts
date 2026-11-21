@@ -186,6 +186,10 @@ export const TEST_PROFILES: TestProfile[] = [
       plan: { ...basePlan, variant: "combined", motherParentalWeeks: 18, fatherParentalWeeks: 16, simultaneous: false, parentalParts: 3 },
       family: { householdSize: 4, monthlyNetIncomeTotal: 14200, aktywnyRodzicOption: "zlobek", nurseryFee: 1800, bothParentsWorking: true },
     },
+    ezusMessages: [
+      { from: "ZUS II Oddział w Warszawie", date: "2026-11-04", text: "Wniosek o świadczenie wychowawcze 800+ został zarejestrowany. Świadczenie zostanie przyznane z wyrównaniem od dnia urodzenia dzieci." },
+      { from: "ZUS II Oddział w Warszawie", date: "2026-11-12", text: "Przypominamy: zasiłek za okres uzupełniającego urlopu macierzyńskiego wymaga zaświadczenia szpitala o pobycie dzieci. Dokument przekaż pracodawcy." },
+    ],
   },
   {
     id: "julia-student",
@@ -215,6 +219,9 @@ export const TEST_PROFILES: TestProfile[] = [
       plan: { ...basePlan, fatherParentalWeeks: 0, paternity: { enabled: false, split: "jednorazowo" } },
       family: { householdSize: 2, monthlyNetIncomeTotal: 2900, aktywnyRodzicOption: "dom", bothParentsWorking: false },
     },
+    ezusMessages: [
+      { from: "ZUS Oddział w Poznaniu", date: "2026-11-02", text: "Jako studentka do 26. roku życia na umowie zlecenia nie podlegasz ubezpieczeniu chorobowemu – zasiłek macierzyński nie przysługuje. Możesz ubiegać się o świadczenie rodzicielskie (1000 zł/mies.) w urzędzie gminy lub MOPS." },
+    ],
   },
   {
     id: "lis-adopcja",
@@ -245,6 +252,10 @@ export const TEST_PROFILES: TestProfile[] = [
       plan: { ...basePlan, motherParentalWeeks: 32, fatherParentalWeeks: 9 },
       family: { householdSize: 3, monthlyNetIncomeTotal: 11000, aktywnyRodzicOption: "praca", bothParentsWorking: true },
     },
+    ezusMessages: [
+      { from: "ZUS Oddział w Gdańsku", date: "2026-10-28", text: "Do wniosku ZAM dołącz zaświadczenie sądu opiekuńczego o wszczęciu postępowania w sprawie przysposobienia dziecka." },
+      { from: "ZUS Oddział w Gdańsku", date: "2026-11-15", text: "Decyzja: przyznano świadczenie wychowawcze 800+ od 09.2026. Wypłata do 10. dnia każdego miesiąca." },
+    ],
   },
 ];
 

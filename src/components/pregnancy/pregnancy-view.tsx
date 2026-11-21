@@ -1,6 +1,7 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
-import { Annoyed, BookOpen, Briefcase, CalendarDays, ChevronLeft, ChevronRight, Download, Frown, Laugh, Lightbulb, Meh, Plus, Smile, Stethoscope, X } from "lucide-react";
+import { Annoyed, BookOpen, Briefcase, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock, Download, Frown, Laugh, Lightbulb, MapPin, Meh, Pencil, Smile, Stethoscope, Trash2, Users } from "lucide-react";
+import Link from "next/link";
 
 const MOOD_ICONS = [Frown, Annoyed, Meh, Smile, Laugh];
 
@@ -10,7 +11,9 @@ function MoodMark({ mood }: { mood: number }) {
 }
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useApp } from "@/store/app";
+import { EVENT_KINDS, useApp, type Appointment, type EventKind } from "@/store/app";
+import { Sheet } from "@/components/ui/sheet";
+import { Field, Input, Select, Switch } from "@/components/ui/form";
 import { useCalculation } from "@/hooks/use-calculation";
 import { useToday } from "@/hooks/use-mounted";
 import { PageHeader } from "@/components/ui/misc";
@@ -54,10 +57,105 @@ interface DayEvent {
   kind: "termin" | "wizyta" | "badanie" | "zus";
   title: string;
   id?: string;
+  appt?: Appointment;
+}
+
+const blankEvent = (date: string, author: "mama" | "tata", kind: EventKind = "wizyta"): Appointment => ({ id: "", date, title: "", kind, time: "", place: "", note: "", shared: true, author });
+
+/** Dodawanie i edycja wydarzenia w kalendarzu (wizyty, badania, szkoła rodzenia…). */
+function EventSheet({ value, onClose }: { value: Appointment | null; onClose: () => void }) {
+  const { addAppointment, updateAppointment, removeAppointment, account, access } = useApp();
+  const [e, setE] = useState<Appointment | null>(value);
+  const [prev, setPrev] = useState(value);
+  if (value !== prev) {
+    setPrev(value);
+    setE(value);
+  }
+  const dad = account === "tata";
+  if (!e) return <Sheet open={false} onOpenChange={onClose} title="">{null}</Sheet>;
+  const set = (patch: Partial<Appointment>) => setE({ ...e, ...patch });
+  const title = e.title.trim() || EVENT_KINDS[e.kind ?? "inne"];
+  function save() {
+    if (!e) return;
+    const item = { ...e, title };
+    if (e.id) updateAppointment(item);
+    else addAppointment({ ...item, id: `a${Date.now()}` });
+    toast.success(e.id ? "Zapisano zmiany" : "Dodano do kalendarza", { description: !dad && e.shared && access.pregnancy ? "Partner zobaczy to wydarzenie w swoim kalendarzu." : undefined });
+    onClose();
+  }
+  return (
+    <Sheet open={!!value} onOpenChange={(v) => !v && onClose()} title={e.id ? "Edytuj wydarzenie" : "Nowe wydarzenie"} description="Wizyta, badanie, USG, szkoła rodzenia albo sprawa w urzędzie.">
+      <form onSubmit={(ev) => (ev.preventDefault(), save())} className="space-y-4">
+        <Field label="Rodzaj" htmlFor="ev-kind">
+          <Select id="ev-kind" value={e.kind ?? "inne"} onChange={(v) => set({ kind: v })} options={(Object.keys(EVENT_KINDS) as EventKind[]).map((k) => ({ value: k, label: EVENT_KINDS[k] }))} />
+        </Field>
+        <Field label="Nazwa (opcjonalnie)" htmlFor="ev-title">
+          <Input id="ev-title" value={e.title} placeholder={`np. ${e.kind === "usg" ? "USG połówkowe" : e.kind === "polozna" ? "Wizyta edukacyjna u położnej" : "Kontrola u ginekologa"}`} onChange={(x) => set({ title: x.target.value })} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Data" htmlFor="ev-date">
+            <Input id="ev-date" type="date" required value={e.date} onChange={(x) => set({ date: x.target.value })} />
+          </Field>
+          <Field label="Godzina" htmlFor="ev-time">
+            <Input id="ev-time" type="time" value={e.time ?? ""} onChange={(x) => set({ time: x.target.value })} />
+          </Field>
+        </div>
+        <Field label="Miejsce" htmlFor="ev-place">
+          <Input id="ev-place" value={e.place ?? ""} placeholder="np. Przychodnia, ul. Puławska 145" onChange={(x) => set({ place: x.target.value })} />
+        </Field>
+        <Field label="Notatka" htmlFor="ev-note">
+          <textarea id="ev-note" rows={2} value={e.note ?? ""} placeholder="Co zabrać, pytania do lekarza…" onChange={(x) => set({ note: x.target.value })} className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-[15px] outline-none focus:border-brand" />
+        </Field>
+        {!dad ? (
+          <div className="rounded-xl border border-line bg-surface-2 p-3">
+            <Switch id="ev-shared" checked={!!e.shared} onCheckedChange={(v) => set({ shared: v })} label={<span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand" /> Pokaż partnerowi</span>} description={access.pregnancy ? "Wydarzenie pojawi się w kalendarzu partnera – może je też edytować." : "Najpierw udostępnij partnerowi kalendarz ciąży (Ustawienia → Partner)."} />
+          </div>
+        ) : (
+          <p className="rounded-xl bg-brand-soft px-3 py-2 text-[14px] text-fg-2">Wydarzenia, które dodasz, zobaczy też mama w swoim kalendarzu.</p>
+        )}
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button type="submit" className="flex-1">
+            <CalendarPlus className="h-4 w-4" /> {e.id ? "Zapisz zmiany" : "Dodaj do kalendarza"}
+          </Button>
+          {e.id && (
+            <Button type="button" variant="outline" onClick={() => (removeAppointment(e.id), toast.success("Usunięto wydarzenie"), onClose())}>
+              <Trash2 className="h-4 w-4" /> Usuń
+            </Button>
+          )}
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+/** Położna i wizyty patronażowe – tu, gdzie planujesz wizyty, a nie na mapie. */
+function MidwifeCard({ week, onPlan }: { week: number | null; onPlan: () => void }) {
+  const soon = week !== null && week >= 18;
+  return (
+    <div className={cn("rounded-2xl border p-5", soon ? "border-brand bg-brand-soft" : "border-line bg-surface")}>
+      <div className="flex items-center gap-2">
+        <Stethoscope className="h-5 w-5 text-brand" />
+        <h3 className="text-[17px] font-bold">Położna i wizyty patronażowe</h3>
+      </div>
+      <ul className="mt-3 space-y-1.5 text-[15px] leading-snug text-fg-2">
+        <li>• <b>Od 21. tygodnia ciąży</b> wybierz położną POZ – składasz deklarację wyboru w przychodni (bezpłatnie). Od tego momentu przysługują Ci wizyty edukacyjne przed porodem.</li>
+        <li>• <b>Po porodzie</b> położna przychodzi do domu na <b>4–6 wizyt patronażowych</b>. Pierwszą umawia zwykle w ciągu 48 godzin od wyjścia ze szpitala.</li>
+        <li>• Podaj w szpitalu dane swojej położnej – szpital przekaże jej informację o porodzie.</li>
+      </ul>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button size="sm" onClick={onPlan}>
+          <CalendarPlus className="h-4 w-4" /> Zaplanuj wizytę położnej
+        </Button>
+        <Link href="/placowki" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line-strong px-3 text-[15px] font-bold hover:bg-surface-2">
+          <MapPin className="h-4 w-4" /> Znajdź przychodnię POZ
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 function CalendarTab() {
-  const { data, account, access, dayLogs, setDayLog, appointments, addAppointment, removeAppointment, epds } = useApp();
+  const { data, account, access, dayLogs, setDayLog, appointments, epds } = useApp();
   const { result } = useCalculation();
   const today = useToday();
   const dad = account === "tata";
@@ -66,7 +164,8 @@ function CalendarTab() {
   const event = data.child.birthDate ?? due;
   const [cursor, setCursor] = useState(() => today.slice(0, 7));
   const [sel, setSel] = useState(today);
-  const [appt, setAppt] = useState("");
+  const [editing, setEditing] = useState<Appointment | null>(null);
+  const author = dad ? "tata" : "mama";
 
   const weekStart = (w: number) => addDaysISO(due, -(40 - w) * 7);
   const events = useMemo(() => {
@@ -74,7 +173,7 @@ function CalendarTab() {
     const push = (d: string, e: DayEvent) => (m[d] ??= []).push(e);
     push(event, { kind: "termin", title: data.child.birthDate ? "Dzień narodzin" : data.child.path === "biologiczny" ? "Termin porodu" : "Przyjęcie dziecka" });
     if (data.child.path === "biologiczny" && !data.child.birthDate) for (const ms of MILESTONES) push(weekStart(ms.week), { kind: "badanie", title: `${ms.title} (${ms.week}.–${ms.until}. tydz.)` });
-    for (const a of appointments) push(a.date, { kind: "wizyta", title: a.title, id: a.id });
+    for (const a of appointments) if (!dad || a.shared || a.author === "tata") push(a.date, { kind: "wizyta", title: `${a.time ? `${a.time} · ` : ""}${a.title}`, id: a.id, appt: a });
     for (const d of result?.deadlines ?? []) if (!dad || d.who !== "matka") push(d.date, { kind: "zus", title: d.title });
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,6 +194,7 @@ function CalendarTab() {
   const selDayOfWeek = selWeek ? (Math.round((Date.parse(sel) - Date.parse(weekStart(selWeek))) / 86400000) + 7) % 7 : 0;
   const info = weekInfo(selWeek);
   const log = dayLogs[sel] ?? { tags: [] };
+  const upcoming = appointments.filter((a) => a.date >= today && (!dad || a.shared || a.author === "tata")).slice(0, 4);
   const inWindow = (d: string) => MILESTONES.some((m) => d >= weekStart(m.week) && d < weekStart(m.until + 1));
 
   async function exportReport() {
@@ -119,14 +219,18 @@ function CalendarTab() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <div className="space-y-4">
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <EventSheet value={editing} onClose={() => setEditing(null)} />
+      <div className="min-w-0 space-y-4">
         <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[19px] font-semibold tracking-tight">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[17px] font-semibold tracking-tight sm:text-[19px]">
               {MONTHS[mo - 1]} {y}
             </h2>
             <div className="flex items-center gap-1">
+              <Button size="sm" onClick={() => setEditing(blankEvent(sel, author))} className="mr-1">
+                <CalendarPlus className="h-4 w-4" /> <span className="hidden sm:inline">Dodaj wydarzenie</span><span className="sm:hidden">Dodaj</span>
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => (setCursor(today.slice(0, 7)), setSel(today))}>
                 Dziś
               </Button>
@@ -217,46 +321,66 @@ function CalendarTab() {
         )}
       </div>
 
-      <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
+      <aside className="split-scroll min-w-0 space-y-4 xl:self-start">
         <div className="rounded-2xl border border-line bg-surface p-5">
           <div className="text-[13px] text-muted">{sel === today ? "Dziś" : "Wybrany dzień"}</div>
           <div className="text-[18px] font-semibold tracking-tight">{dLong(sel)}</div>
           {selWeek && <div className="text-[14px] text-gold">{selWeek}. tydzień ciąży + {selDayOfWeek} {selDayOfWeek === 1 ? "dzień" : "dni"}</div>}
 
-          {(events[sel] ?? []).length > 0 && (
+          {(events[sel] ?? []).length > 0 ? (
             <ul className="mt-4 space-y-1.5">
               {events[sel].map((e, i) => (
-                <li key={i} className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-[14px]">
-                  <span className={cn("h-2 w-2 shrink-0 rounded-full", e.kind === "termin" ? "bg-gold" : e.kind === "wizyta" ? "bg-blue" : e.kind === "zus" ? "bg-orange" : "bg-green")} />
-                  <span className="flex-1">{e.title}</span>
-                  {e.id && !dad && (
-                    <button onClick={() => removeAppointment(e.id!)} className="text-muted hover:text-red" aria-label="Usuń wizytę">
-                      <X className="h-3.5 w-3.5" />
+                <li key={i}>
+                  {e.appt ? (
+                    <button onClick={() => setEditing(e.appt!)} className="group flex w-full items-start gap-2 rounded-xl bg-surface-2 px-3 py-2 text-left text-[14px] transition hover:bg-brand-soft">
+                      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-bold">{e.title}</span>
+                        <span className="block text-[13px] text-muted">
+                          {EVENT_KINDS[e.appt.kind ?? "inne"]}
+                          {e.appt.place ? ` · ${e.appt.place}` : ""}
+                          {e.appt.shared || e.appt.author === "tata" ? ` · wspólne${e.appt.author === "tata" ? " (dodał partner)" : ""}` : " · tylko ja"}
+                        </span>
+                      </span>
+                      <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted group-hover:text-brand" aria-label="Edytuj" />
                     </button>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-[14px]">
+                      <span className={cn("h-2 w-2 shrink-0 rounded-full", e.kind === "termin" ? "bg-gold" : e.kind === "zus" ? "bg-orange" : "bg-green")} />
+                      <span className="flex-1">{e.title}</span>
+                    </div>
                   )}
                 </li>
               ))}
             </ul>
+          ) : (
+            <p className="mt-3 text-[14px] text-muted">Brak wydarzeń tego dnia.</p>
           )}
 
-          {!dad && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!appt.trim()) return;
-                addAppointment({ id: `a${Date.now()}`, date: sel, title: appt.trim() });
-                setAppt("");
-                toast.success("Dodano do kalendarza");
-              }}
-              className="mt-3 flex gap-2"
-            >
-              <input value={appt} onChange={(e) => setAppt(e.target.value)} placeholder="Dodaj wizytę, np. kontrola u ginekologa" className="h-9 min-w-0 flex-1 rounded-xl border border-line bg-surface-2 px-3 text-[15px] outline-none focus:border-line-strong" />
-              <Button type="submit" size="sm" variant="secondary" aria-label="Dodaj wizytę">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </form>
+          {(!dad || access.pregnancy) && (
+            <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={() => setEditing(blankEvent(sel, author))}>
+              <CalendarPlus className="h-4 w-4" /> Dodaj wydarzenie {sel === today ? "na dziś" : `na ${dLong(sel)}`}
+            </Button>
+          )}
+          {upcoming.length > 0 && (
+            <div className="mt-5 border-t border-line pt-4">
+              <div className="text-[13px] font-bold text-muted uppercase">Najbliższe wydarzenia</div>
+              <ul className="mt-2 space-y-1">
+                {upcoming.map((a) => (
+                  <li key={a.id}>
+                    <button onClick={() => (setSel(a.date), setCursor(a.date.slice(0, 7)))} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[14px] hover:bg-surface-2">
+                      <Clock className="h-3.5 w-3.5 shrink-0 text-brand" />
+                      <span className="num shrink-0 text-muted">{dPL(a.date).slice(0, 5)}</span>
+                      <span className="truncate">{a.title}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
+
+        {!dad && data.child.path === "biologiczny" && <MidwifeCard week={pregnancyWeek(due, today, data.child.birthDate)} onPlan={() => setEditing(blankEvent(sel, author, "polozna"))} />}
 
         {canSeeSymptoms && (
           <div className="rounded-2xl border border-line bg-surface p-5">

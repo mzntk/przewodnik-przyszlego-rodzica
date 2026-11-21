@@ -7,8 +7,38 @@ import { buildIncomeHistory } from "@/data/profiles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Term } from "@/components/ui/term";
+import { cn } from "@/lib/utils";
 
 const TITLE_OPTIONS = (Object.keys(TITLE_LABELS) as InsuranceTitle[]).map((t) => ({ value: t, label: TITLE_LABELS[t] }));
+
+/** Wyjaśnienie pola „Utrata pracy w ciąży” – zamiast tajemniczego „(wyrok)”. */
+export const LOSS_INFO = {
+  title: "Kiedy to zaznaczyć?",
+  body: (
+    <>
+      <p>Tylko gdy straciłaś pracę w ciąży <b>nie ze swojej winy</b> – bo firma upadła, została zlikwidowana, pracodawca zmarł albo zwolnił Cię niezgodnie z prawem.</p>
+      <p>
+        <b>Zwolnienie niezgodne z prawem</b> to np. wypowiedzenie umowy kobiecie w ciąży. Liczy się dopiero wtedy, gdy <b>sąd pracy prawomocnym wyrokiem</b> uznał je za bezprawne (odwołanie składa się do sądu w 21 dni).
+      </p>
+      <p>W tych sytuacjach do porodu dostajesz zasiłek w wysokości zasiłku macierzyńskiego (100%), a po porodzie – zasiłek macierzyński.</p>
+    </>
+  ),
+};
+export const LOSS_HINT: Record<string, string> = {
+  brak: "Zostaw „Nie dotyczy”, jeśli pracujesz albo sama złożyłaś wypowiedzenie.",
+  upadlosc: "Potrzebne: świadectwo pracy z informacją o upadłości pracodawcy.",
+  likwidacja: "Potrzebne: świadectwo pracy z informacją o likwidacji pracodawcy.",
+  smierc_pracodawcy: "Dotyczy pracodawcy będącego osobą fizyczną (np. jednoosobowa firma).",
+  bezprawne_zwolnienie: "Potrzebne: prawomocny wyrok sądu pracy. Sam fakt zwolnienia w ciąży nie wystarczy.",
+};
+
+const MIN_WAGE = 4806;
+const INCOME_PRESETS = [
+  { label: "Płaca minimalna", value: MIN_WAGE },
+  { label: "6 000 zł", value: 6000 },
+  { label: "8 000 zł", value: 8000 },
+  { label: "10 000 zł", value: 10000 },
+];
 
 export function ParentEditor({ who }: { who: "mother" | "father" }) {
   const { data, setData } = useApp();
@@ -33,7 +63,11 @@ export function ParentEditor({ who }: { who: "mother" | "father" }) {
       <Field label="Nazwisko">
         <Input value={p.lastName} onChange={(e) => up((x) => void (x.lastName = e.target.value))} />
       </Field>
-      <Field label="Tytuł ubezpieczenia" className="sm:col-span-2">
+      <Field
+        label="Tytuł ubezpieczenia"
+        className="sm:col-span-2"
+        info={{ title: "Skąd to wiem?", body: <><p>To rodzaj umowy, na podstawie której jesteś w ZUS: umowa o pracę, zlecenie, własna firma…</p><p>Sprawdzisz to w <b>PUE/eZUS → Panel Ubezpieczonego → Dane o ubezpieczeniach</b> albo na swojej umowie.</p></> }}
+      >
         <Select value={p.title} onChange={(v) => up((x) => void (x.title = v))} options={TITLE_OPTIONS} />
       </Field>
       {voluntaryTitle && (
@@ -41,12 +75,38 @@ export function ParentEditor({ who }: { who: "mother" | "father" }) {
           <Switch checked={p.voluntarySickness} onCheckedChange={(v) => up((x) => void (x.voluntarySickness = v))} label="Dobrowolne ubezpieczenie chorobowe" description="Bez niego nie ma zasiłku chorobowego ani macierzyńskiego (art. 11 ust. 2 u.s.u.s.)." />
         </div>
       )}
-      <Field label="Ubezpieczenie chorobowe nieprzerwanie od" hint="Okres wyczekiwania: 30 dni (obowiązkowe) / 90 dni (dobrowolne)">
+      <Field
+        label="Ubezpieczenie chorobowe nieprzerwanie od"
+        hint="Okres wyczekiwania: 30 dni (obowiązkowe) / 90 dni (dobrowolne)"
+        info={{ title: "Jaką datę wpisać?", body: <><p>Dzień, od którego bez przerwy masz ubezpieczenie chorobowe – zwykle pierwszy dzień obecnej umowy albo dzień zgłoszenia firmy do ZUS.</p><p>Znajdziesz ją w <b>PUE/eZUS → Dane z ZUS → Zgłoszenia do ubezpieczeń</b> (druk ZUA). Przerwa krótsza niż 30 dni między umowami nie zeruje stażu.</p></> }}
+      >
         <Input type="date" value={p.insuranceStart} onChange={(e) => up((x) => void (x.insuranceStart = e.target.value))} />
       </Field>
       {!jdg && (
-        <Field label="Liczba ubezpieczonych u płatnika (30.11)" hint="> 20 – zasiłek wypłaca płatnik; ≤ 20 – ZUS">
-          <NumberInput value={p.payer?.insuredCount ?? 0} min={0} onChange={(v) => up((x) => void (x.payer = { name: x.payer?.name ?? "", nip: x.payer?.nip ?? "", insuredCount: v }))} suffix="os." />
+        <Field
+          label={employee ? "Ilu ubezpieczonych ma pracodawca?" : "Ilu ubezpieczonych ma zleceniodawca?"}
+          className="sm:col-span-2"
+          hint={(p.payer?.insuredCount ?? 0) > 20 ? "Zasiłek wypłaci pracodawca – dokumenty składasz w kadrach." : "Zasiłek wypłaci ZUS – pracodawca przekaże mu zaświadczenie Z-3."}
+          info={{
+            title: "Skąd wziąć tę liczbę?",
+            body: (
+              <>
+                <p>Chodzi o liczbę osób, które firma zgłaszała do <b>ubezpieczenia chorobowego</b> według stanu na <b>30 listopada poprzedniego roku</b> – nie tylko pracowników na etacie.</p>
+                <p>Najprościej: zapytaj <b>kadry lub księgowość</b> „czy zasiłki wypłaca u nas firma, czy ZUS?”. Wystarczy odpowiedź „do 20” albo „ponad 20” – dokładna liczba nie jest potrzebna.</p>
+                <p>Mała firma (rodzinna, kilkuosobowa) prawie zawsze ma 20 lub mniej.</p>
+              </>
+            ),
+          }}
+        >
+          <Segmented
+            className="flex w-full"
+            value={(p.payer?.insuredCount ?? 0) > 20 ? "duza" : "mala"}
+            onChange={(v) => up((x) => void (x.payer = { name: x.payer?.name ?? "", nip: x.payer?.nip ?? "", insuredCount: v === "duza" ? Math.max(21, x.payer?.insuredCount ?? 0) : Math.min(20, Math.max(1, x.payer?.insuredCount ?? 1)) }))}
+            options={[
+              { value: "mala", label: "20 osób lub mniej" },
+              { value: "duza", label: "Więcej niż 20" },
+            ]}
+          />
         </Field>
       )}
       {employee && (
@@ -54,7 +114,39 @@ export function ParentEditor({ who }: { who: "mother" | "father" }) {
           <Select value={String(p.workTimeFraction)} onChange={(v) => up((x) => void (x.workTimeFraction = Number(v)))} options={[{ value: "1", label: "Pełny etat" }, { value: "0.75", label: "3/4 etatu" }, { value: "0.5", label: "1/2 etatu" }, { value: "0.25", label: "1/4 etatu" }]} />
         </Field>
       )}
-      <Field label={jdg ? "Zadeklarowana podstawa składek (mies.)" : employee ? "Średnie wynagrodzenie brutto (mies.)" : "Przychód ze zlecenia (mies.)"} hint="Ustawia jednakową kwotę dla 12 miesięcy – szczegóły w zakładce „Podstawa”.">
+      <Field
+        label={jdg ? "Zadeklarowana podstawa składek (mies.)" : employee ? "Średnie wynagrodzenie brutto (mies.)" : "Przychód ze zlecenia (mies.)"}
+        className="sm:col-span-2"
+        hint="Wystarczy przybliżona kwota – ustawimy ją dla 12 miesięcy. Miesiące z inną kwotą poprawisz w kalkulatorze („Podstawa”)."
+        info={{
+          title: "Skąd wziąć kwotę?",
+          body: jdg ? (
+            <p>To kwota, od której płacisz składki (nie przychód firmy). Znajdziesz ją w deklaracji <b>ZUS DRA</b> albo w <b>PUE/eZUS → Dane z ZUS → Podstawy wymiaru</b>.</p>
+          ) : (
+            <>
+              <p>Kwota <b>brutto</b> (przed podatkiem i składkami) – jest na pasku wynagrodzenia albo w umowie.</p>
+              <p>Masz różne kwoty co miesiąc? Weź roczny przychód z <b>PIT-11</b> i podziel przez 12. Dane pobrane z ZUS uzupełniamy automatycznie.</p>
+            </>
+          ),
+        }}
+      >
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {INCOME_PRESETS.map((x) => (
+            <button
+              key={x.label}
+              type="button"
+              onClick={() =>
+                up((y) => {
+                  y.incomeHistory = y.incomeHistory.length ? y.incomeHistory.map((m) => ({ ...m, gross: x.value, fixedContract: x.value })) : buildIncomeHistory(new Date().toISOString().slice(0, 7), 12, x.value);
+                  if (jdg) y.declaredBase = x.value;
+                })
+              }
+              className={cn("rounded-full border px-3 py-1 text-[13px] font-medium transition-colors", avg === x.value ? "border-brand bg-brand-soft text-brand" : "border-line text-fg-2 hover:border-brand")}
+            >
+              {x.label}
+            </button>
+          ))}
+        </div>
         <NumberInput
           value={avg}
           step={100}
@@ -68,7 +160,7 @@ export function ParentEditor({ who }: { who: "mother" | "father" }) {
         />
       </Field>
       {jdg && (
-        <Field label="Zadłużenie składkowe na dzień powstania prawa" hint="Próg blokady: 1% płacy minimalnej (art. 2a)">
+        <Field label="Zadłużenie składkowe na dzień powstania prawa" hint="Próg blokady: 1% płacy minimalnej (art. 2a)" info={{ title: "Jak to sprawdzić?", body: <p>W <b>PUE/eZUS → Płatnik → Stan rozliczeń</b> albo zamawiając zaświadczenie o niezaleganiu. Zaległość powyżej 48,06 zł blokuje wypłatę zasiłku do czasu spłaty.</p> }}>
           <NumberInput value={p.contributionDebt ?? 0} step={10} suffix="zł" onChange={(v) => up((x) => void (x.contributionDebt = v))} />
         </Field>
       )}

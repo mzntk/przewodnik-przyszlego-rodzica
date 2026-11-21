@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, Ring, Skeleton, Stat } from "@/components/ui/misc";
 import { AnimatedNumber } from "@/components/ui/animated-number";
-import { AlertsList } from "./alerts";
+import { AlertsList, RisksList } from "./alerts";
 import { BenefitGantt } from "./benefit-gantt";
 import { DeadlineTimeline } from "./deadlines";
 import { cn, dLong, plural, zl, zl0 } from "@/lib/utils";
@@ -49,17 +49,29 @@ export function BenefitsOverview() {
         description={viewAs === "tata" ? `Świadczenia rodziny udostępnione przez ${data.mother.firstName || "mamę"}.` : `${TITLE_LABELS[data.mother.title]} · ${data.child.path === "biologiczny" ? "narodziny" : data.child.path === "adopcja" ? "adopcja" : "rodzina zastępcza"} · ${data.child.childrenCount > 1 ? `${data.child.childrenCount} dzieci` : "1 dziecko"}`}
         actions={
           <>
-            <Link href="/kalkulator"><Badge tone="blue" className="h-8 px-3 text-[15px]">Kalkulator →</Badge></Link>
+            {viewAs === "mama" && <Link href="/kalkulator" className="inline-flex h-9 items-center rounded-xl bg-brand px-4 text-[15px] font-bold text-white hover:bg-brand-hover">Policz zasiłek →</Link>}
             {loading && <Badge>Przeliczanie…</Badge>}
           </>
         }
       />
 
       {danger > 0 && (
-        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--red)_35%,transparent)] bg-red-soft px-4 py-3 text-[15px] text-red">
+        <motion.a
+          href="#centrum-alertow"
+          onClick={(e) => {
+            e.preventDefault();
+            document.getElementById("centrum-alertow")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--red)_35%,transparent)] bg-red-soft px-4 py-3 text-[15px] text-red transition hover:brightness-95"
+        >
           <ShieldAlert className="h-5 w-5 shrink-0" />
-          <span className="flex-1 font-medium">{danger} {plural(danger, "krytyczne ryzyko", "krytyczne ryzyka", "krytycznych ryzyk")} dla Twoich świadczeń – sprawdź Centrum Alertów.</span>
-        </motion.div>
+          <span className="flex-1 font-medium">{danger} {plural(danger, "krytyczne ryzyko", "krytyczne ryzyka", "krytycznych ryzyk")} dla Twoich świadczeń.</span>
+          <span className="inline-flex shrink-0 items-center gap-1 font-bold underline-offset-2 hover:underline">
+            Przejdź do Centrum alertów <ArrowRight className="h-4 w-4" />
+          </span>
+        </motion.a>
       )}
 
       <div className="grid gap-4 xl:grid-cols-12">
@@ -118,7 +130,7 @@ export function BenefitsOverview() {
       </div>
 
       <Card>
-        <CardHeader title="Oś czasu świadczeń" subtitle="Okresy zasiłków i urlopów obojga rodziców – najedź na pasek, aby zobaczyć kwoty." icon={<CalendarRange className="h-4 w-4" />} action={<Link href="/kalkulator?tab=podzial" className="text-[14px] font-medium text-blue">Zmień plan →</Link>} />
+        <CardHeader title="Oś czasu świadczeń" subtitle="Okresy zasiłków i urlopów obojga rodziców – najedź na pasek, aby zobaczyć kwoty." icon={<CalendarRange className="h-4 w-4" />} action={viewAs === "mama" && <Link href="/kalkulator?tab=podzial" className="shrink-0 text-[14px] font-bold text-brand hover:underline">Zmień plan →</Link>} />
         <CardBody>
           {result.segments.length ? (
             <BenefitGantt segments={result.segments} start={result.timelineStart} end={result.timelineEnd} today={today} event={event} names={{ matka: data.mother.firstName || "Mama", ojciec: data.father?.firstName }} />
@@ -130,26 +142,31 @@ export function BenefitsOverview() {
 
       <div className="grid gap-4 xl:grid-cols-12">
         <Card className="xl:col-span-7">
-          <CardHeader title="Terminy graniczne (hard deadlines)" subtitle="Wyliczone automatycznie od daty porodu / przyjęcia dziecka." icon={<ListChecks className="h-4 w-4" />} />
+          <CardHeader title="Terminy, których nie można przekroczyć" subtitle="Wyliczone automatycznie od daty porodu / przyjęcia dziecka." icon={<ListChecks className="h-4 w-4" />} />
           <CardBody>
             <DeadlineTimeline deadlines={result.deadlines} filter={viewAs === "tata" ? (d) => d.who !== "matka" : undefined} />
           </CardBody>
         </Card>
         <div className="space-y-4 xl:col-span-5">
-          <Card>
-            <CardHeader title="Centrum Alertów i Red Flags" subtitle="Ryzyka utraty lub obniżenia świadczeń" icon={<ShieldAlert className="h-4 w-4" />} action={<Badge tone={danger ? "red" : "neutral"}>{result.findings.length}</Badge>} />
-            <CardBody>
+          <Card id="centrum-alertow" className="scroll-mt-24">
+            <CardHeader title="Centrum alertów" subtitle="Co w Twojej sytuacji wymaga uwagi" icon={<ShieldAlert className="h-4 w-4" />} action={<Badge tone={danger ? "red" : "neutral"}>{result.findings.length}</Badge>} />
+            <CardBody className="space-y-6">
               <AlertsList findings={result.findings} />
+              <div>
+                <h4 className="text-[16px] font-bold">Na co uważać, żeby nie stracić świadczeń</h4>
+                <p className="mt-1 mb-3 text-[14px] text-muted">Sytuacje, w których można stracić prawo do zasiłku albo zmienia się jego długość lub kwota.</p>
+                <RisksList title={viewAs === "tata" && data.father ? data.father.title : data.mother.title} forDad={viewAs === "tata"} />
+              </div>
             </CardBody>
           </Card>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      {viewAs === "mama" && <div className="grid gap-3 sm:grid-cols-3">
         {[
-          { href: "/dokumenty", icon: FileSearch, title: "Sprawdź dokument PDF", text: "Walidacja braków formalnych", tone: "text-gold" },
-          { href: "/wnioski", icon: FileSignature, title: "Przygotuj wnioski", text: "Autouzupełnianie i eksport PDF", tone: "text-blue" },
-          { href: "/ustawienia#partner", icon: HeartHandshake, title: "Dostęp dla partnera", text: "Co widzi tata po zalogowaniu", tone: "text-green" },
+          { href: "/dokumenty", icon: FileSearch, title: "Sprawdź dokument PDF", text: "Czy niczego nie brakuje?", tone: "text-brand" },
+          { href: "/wnioski", icon: FileSignature, title: "Przygotuj wnioski", text: "Wypełnione Twoimi danymi", tone: "text-brand" },
+          { href: "/ustawienia#partner", icon: HeartHandshake, title: "Dostęp dla partnera", text: "Co widzi tata po zalogowaniu", tone: "text-brand" },
         ].map((q) => (
           <Link key={q.href} href={q.href} className="group flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 transition hover:border-line-strong">
             <q.icon className={cn("h-5 w-5", q.tone)} />
@@ -160,7 +177,7 @@ export function BenefitsOverview() {
             <ArrowRight className="h-4 w-4 text-muted transition group-hover:translate-x-0.5" />
           </Link>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

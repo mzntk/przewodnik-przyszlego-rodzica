@@ -1,84 +1,132 @@
 "use client";
-import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, Check, Clock, LocateFixed } from "lucide-react";
+import { motion } from "framer-motion";
+import { BookOpen, Check, Clock, LocateFixed, MapPinOff, Search } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { Component, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "@/store/app";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Ring, Skeleton } from "@/components/ui/misc";
 import { Sheet } from "@/components/ui/sheet";
-import { ARTICLES, BOOKS, CHECKLISTS, PLACES, PLACE_LABELS, type Article, type PlaceType } from "@/data/organize";
-import { cn } from "@/lib/utils";
+import { ARTICLES, BOOKS, CHECKLISTS, CITIES, CITY_CENTER, PLACES, PLACE_HINT, PLACE_LABELS, type Article, type Place, type PlaceType } from "@/data/organize";
+import { norm } from "@/components/layout/search-dialog";
+import { cn, plural } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
 
-const PlacesMap = dynamic(() => import("./places-map"), { ssr: false, loading: () => <Skeleton className="h-[360px] sm:h-[440px]" /> });
-const DOT: Record<PlaceType, string> = { zus: "bg-blue", usc: "bg-gold", poz: "bg-green", szpital: "bg-red" };
+const PlacesMap = dynamic(() => import("./places-map"), { ssr: false, loading: () => <Skeleton className="h-[340px] sm:h-[460px]" /> });
+const DOT: Record<PlaceType, string> = { zus: "bg-brand", usc: "bg-gold", poz: "bg-blue", szpital: "bg-red" };
+
+/** Gdy mapa (biblioteka Leaflet) zgłosi błąd, pokazujemy samą listę zamiast „wywalenia” całej aplikacji. */
+class MapBoundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed)
+      return (
+        <div className="grid h-[340px] place-items-center rounded-xl bg-surface-2 p-6 text-center text-[15px] text-fg-2 sm:h-[460px]">
+          <div>
+            <MapPinOff className="mx-auto h-8 w-8 text-muted" />
+            <p className="mt-2">Nie udało się wczytać mapy. Lista placówek obok działa normalnie.</p>
+            <Button size="sm" variant="secondary" className="mt-3" onClick={() => this.setState({ failed: false })}>
+              Spróbuj ponownie
+            </Button>
+          </div>
+        </div>
+      );
+    return this.props.children;
+  }
+}
+
+const km = (a: [number, number], p: Place) => Math.hypot(p.lat - a[0], (p.lng - a[1]) * Math.cos((a[0] * Math.PI) / 180)) * 111;
 
 export function MapTab() {
   const [types, setTypes] = useState<PlaceType[]>(["zus", "usc", "poz", "szpital"]);
+  const [city, setCity] = useState<string>("Warszawa");
+  const [q, setQ] = useState("");
   const [focus, setFocus] = useState<[number, number] | null>(null);
   const [user, setUser] = useState<[number, number] | null>(null);
-  const shown = PLACES.filter((p) => types.includes(p.type));
-  const sorted = useMemo(() => {
-    if (!user) return shown;
-    const dist = (p: (typeof PLACES)[number]) => Math.hypot(p.lat - user[0], (p.lng - user[1]) * Math.cos((user[0] * Math.PI) / 180)) * 111;
-    return [...shown].sort((a, b) => dist(a) - dist(b)).map((p) => ({ ...p, km: dist(p) }));
-  }, [shown, user]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const needle = norm(q.trim());
+  const shown = PLACES.filter((p) => types.includes(p.type) && (needle ? norm(`${p.name} ${p.address} ${p.city} ${p.note ?? ""}`).includes(needle) : user || p.city === city));
+  const sorted = user ? [...shown].sort((a, b) => km(user, a) - km(user, b)) : shown;
 
   function locate() {
-    if (!navigator.geolocation) return toast.error("Geolokalizacja niedostępna");
+    const done = (c: [number, number]) => {
+      setUser(c);
+      setFocus(c);
+      const nearest = [...PLACES].sort((a, b) => km(c, a) - km(c, b))[0];
+      if (nearest) setCity(nearest.city);
+    };
+    if (!navigator.geolocation) return toast.error("Geolokalizacja niedostępna w tej przeglądarce");
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const c: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setUser(c);
-        setFocus(c);
-      },
+      (pos) => done([pos.coords.latitude, pos.coords.longitude]),
       () => {
-        const c: [number, number] = [52.2297, 21.0122];
-        setUser(c);
-        setFocus(c);
+        done(CITY_CENTER.Warszawa);
         toast.info("Brak zgody na lokalizację – pokazuję centrum Warszawy");
       },
+      { timeout: 8000 },
     );
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
-      <Card className="overflow-hidden">
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-line p-3">
-          {(Object.keys(PLACE_LABELS) as PlaceType[]).map((t) => (
-            <button key={t} onClick={() => setTypes((x) => (x.includes(t) ? x.filter((y) => y !== t) : [...x, t]))} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] transition", types.includes(t) ? "border-line-strong bg-surface-2" : "border-line text-muted")}>
-              <span className={cn("h-2.5 w-2.5 rounded-full", DOT[t])} /> {PLACE_LABELS[t]}
-            </button>
-          ))}
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={locate}>
-            <LocateFixed className="h-3.5 w-3.5" /> Najbliższe
-          </Button>
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <Card className="min-w-0 overflow-hidden">
+        <div className="space-y-2 border-b border-line p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Szukaj: nazwa, ulica, miasto…" className="h-10 w-full rounded-xl border border-line bg-surface-2 pr-3 pl-9 text-[15px] outline-none focus:border-brand" />
+            </div>
+            <select value={city} onChange={(e) => (setCity(e.target.value), setUser(null), setQ(""), setFocus(CITY_CENTER[e.target.value]))} className="h-10 rounded-xl border border-line bg-surface-2 px-3 text-[15px]" aria-label="Miasto">
+              {CITIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+            <Button size="sm" variant="secondary" className="h-10" onClick={locate}>
+              <LocateFixed className="h-4 w-4" /> Najbliżej mnie
+            </Button>
+          </div>
+          <div className="scrollbar-none -mx-1 flex gap-1.5 overflow-x-auto px-1">
+            {(Object.keys(PLACE_LABELS) as PlaceType[]).map((t) => (
+              <button key={t} onClick={() => setTypes((x) => (x.includes(t) ? x.filter((y) => y !== t) : [...x, t]))} aria-pressed={types.includes(t)} className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] transition", types.includes(t) ? "border-brand bg-brand-soft font-bold text-fg" : "border-line text-muted")}>
+                <span className={cn("h-2.5 w-2.5 rounded-full", DOT[t])} /> {PLACE_LABELS[t]}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="p-2">
-          <PlacesMap places={shown} focus={focus} user={user} />
+          <MapBoundary>
+            <PlacesMap key={city} places={shown} focus={focus} user={user} center={CITY_CENTER[city] ?? CITY_CENTER.Warszawa} />
+          </MapBoundary>
         </div>
       </Card>
-      <div className="space-y-3">
-        <div className="rounded-xl bg-green-soft px-4 py-3 text-[14px] text-green">
-          <b>Wizyty patronażowe:</b> po porodzie przysługuje Ci 4–6 bezpłatnych wizyt położnej środowiskowej z POZ. Wybierz położną (deklaracja) jeszcze w ciąży.
+      <div className="split-scroll min-w-0 space-y-2">
+        <div className="text-[14px] text-muted">
+          {sorted.length} {plural(sorted.length, "placówka", "placówki", "placówek")} {needle ? `dla „${q}”` : user ? "– od najbliższej" : `· ${city}`}
         </div>
-        <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+        <ul className="space-y-2">
           {sorted.map((p) => (
-            <button key={p.id} onClick={() => setFocus([p.lat, p.lng])} className="flex w-full items-start gap-3 rounded-xl border border-line bg-surface px-3.5 py-3 text-left transition hover:border-line-strong">
-              <span className={cn("mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full", DOT[p.type])} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium">{p.name}</span>
-                <span className="block text-[13px] text-muted">{p.address}</span>
-                {p.note && <span className="block text-[13px] text-fg-2">{p.note}</span>}
-              </span>
-              {"km" in p && <span className="num text-[13px] text-muted">{(p as { km: number }).km.toFixed(1)} km</span>}
-            </button>
+            <li key={p.id}>
+              <button onClick={() => (setFocus([p.lat, p.lng]), setSelected(p.id))} className={cn("flex w-full items-start gap-3 rounded-xl border bg-surface px-3.5 py-3 text-left transition hover:border-brand", selected === p.id ? "border-brand" : "border-line")}>
+                <span className={cn("mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full", DOT[p.type])} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-bold">{p.name}</span>
+                  <span className="block text-[13px] text-muted">
+                    {p.address}, {p.city}
+                  </span>
+                  <span className="block text-[13px] text-fg-2">{p.note ?? PLACE_HINT[p.type]}</span>
+                  {p.hours && <span className="block text-[12px] text-muted">{p.hours}</span>}
+                </span>
+                {user && <span className="num shrink-0 text-[13px] text-muted">{km(user, p).toFixed(1)} km</span>}
+              </button>
+            </li>
           ))}
-        </div>
-        <p className="text-[13px] text-muted">Dane demonstracyjne (Warszawa). W produkcji: rejestry placówek ZUS, USC i NFZ.</p>
+        </ul>
+        {!sorted.length && <p className="rounded-xl border border-dashed border-line p-4 text-[15px] text-muted">Brak placówek dla wybranych filtrów.</p>}
+        <p className="text-[13px] text-muted">Dane demonstracyjne (6 miast, współrzędne przybliżone). W produkcji: rejestry placówek ZUS, USC i NFZ.</p>
       </div>
     </div>
   );

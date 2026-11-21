@@ -17,20 +17,21 @@
   --text: #111827;
   --text-2: #374151;
   --muted: #5b6472;
-  --brand: #00843d;
-  --brand-hover: #006f33;
+  --brand: #33763c; /* R:51 G:118 B:60 – kolor przewodni */
+  --brand-hover: #285e30;
+  --brand-soft: #e9f2ea;
   --blue: #1d5fbf;
-  --green: #0b7a3b;
+  --green: #33763c;
   --orange: #b45309;
   --gold: #8a6100;
   --red: #c0122c;
   --blue-soft: #eaf1fb;
-  --green-soft: #e8f5ed;
+  --green-soft: #e9f2ea;
   --orange-soft: #fdf1e4;
   --gold-soft: #fbf4e2;
   --red-soft: #fcebee;
   --shadow: 0 1px 2px rgba(17, 24, 39, 0.06), 0 8px 24px -12px rgba(17, 24, 39, 0.18);
-  --ring: rgba(0, 132, 61, 0.45);
+  --ring: rgba(51, 118, 60, 0.45);
   color-scheme: light;
 }
 
@@ -47,6 +48,7 @@
   --color-muted: var(--muted);
   --color-brand: var(--brand);
   --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
   --color-blue: var(--blue);
   --color-green: var(--green);
   --color-orange: var(--orange);
@@ -63,12 +65,19 @@
 }
 
 html {
+  /* Android/iOS nie powiększają samowolnie tekstu po obrocie – spójny wygląd na obu systemach */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
 body {
+  overflow-x: clip;
+  min-width: 320px;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
@@ -90,7 +99,7 @@ p {
 }
 
 ::selection {
-  background: #cfe8d9;
+  background: #d3e6d5;
   color: var(--text);
 }
 
@@ -147,5 +156,37 @@ input[type="number"]::-webkit-inner-spin-button {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Długie słowa (np. nazwy druków, numery telefonów) nie wypychają treści poza ekran telefonu */
+h1,
+h2,
+h3,
+p,
+li,
+dd {
+  overflow-wrap: anywhere;
+}
+img {
+  max-width: 100%;
+}
+/* Inputy ≥16px – bez automatycznego powiększania widoku na iOS i różnic na Androidzie */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+/* Kolumny podzielonych widoków przewijają się niezależnie (desktop) */
+@media (min-width: 1280px) {
+  .split-scroll {
+    position: sticky;
+    top: 5rem;
+    max-height: calc(100dvh - 6rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
 }

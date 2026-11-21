@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   // Przykładowe PDF-y są czytane z dysku przez API – na Vercel muszą trafić do paczki funkcji.
   outputFileTracingIncludes: {
     "/api/documents/analyze": ["./public/samples/**/*"],
+    "/api/forms": ["./public/formularze/**/*"],
   },
   partialPrefetching: true,
   turbopack: {

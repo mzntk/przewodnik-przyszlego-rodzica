@@ -11,7 +11,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader, Ring, Skeleton, Stat } from "@/components/ui/misc";
 import { Badge, LegalChip } from "@/components/ui/badge";
 import { Field, Input, NumberInput, Select, Slider, Switch, Segmented } from "@/components/ui/form";
-import { ChildEditor, ParentEditor, SickLeaveEditor } from "@/components/forms/case-editors";
+import { ChildEditor, LOSS_HINT, LOSS_INFO, ParentEditor, SickLeaveEditor } from "@/components/forms/case-editors";
 import { BaseSteps, SegmentTable, SummaryCard } from "./results";
 import { BenefitGantt } from "@/components/dashboard/benefit-gantt";
 import { AlertsList } from "@/components/dashboard/alerts";
@@ -107,7 +107,7 @@ function PregnancyTab({ r }: { r: CalculationResult }) {
             <div className="space-y-3 rounded-xl border border-line p-3">
               <div className="text-[13px] font-semibold text-muted uppercase">Sytuacja zawodowa</div>
               <Switch checked={!!data.mother.age50plus} onCheckedChange={(v) => setData((d) => ((d.mother.age50plus = v), d))} label="Pracownik po 50. roku życia" description="Pracodawca płaci 14 zamiast 33 dni" />
-              <Field label="Utrata pracy w ciąży">
+              <Field label="Utrata pracy w ciąży" info={LOSS_INFO} hint={LOSS_HINT[data.mother.employmentLossReason ?? "brak"]}>
                 <Select
                   value={data.mother.employmentLossReason ?? "brak"}
                   onChange={(v) => setData((d) => ((d.mother.employmentLossReason = v === "brak" ? null : (v as never)), d))}
@@ -116,7 +116,7 @@ function PregnancyTab({ r }: { r: CalculationResult }) {
                     { value: "upadlosc", label: "Upadłość pracodawcy" },
                     { value: "likwidacja", label: "Likwidacja pracodawcy" },
                     { value: "smierc_pracodawcy", label: "Śmierć pracodawcy" },
-                    { value: "bezprawne_zwolnienie", label: "Bezprawne zwolnienie (wyrok)" },
+                    { value: "bezprawne_zwolnienie", label: "Zwolnienie niezgodne z prawem – potwierdzone wyrokiem sądu" },
                   ]}
                 />
               </Field>
@@ -155,7 +155,7 @@ function PregnancyTab({ r }: { r: CalculationResult }) {
             </div>
             <div className={cn("rounded-xl border p-4", s.maternityLevelBenefit.applies ? "border-blue/40 bg-blue-soft" : "border-line")}>
               <div className="text-[15px] font-semibold">Zasiłek w wysokości zasiłku macierzyńskiego</div>
-              <p className="mt-1 text-[14px] text-fg-2">{s.maternityLevelBenefit.reason ?? "Przysługuje przy utracie pracy w ciąży z powodu upadłości, likwidacji lub śmierci pracodawcy albo bezprawnego zwolnienia (wyrok)."} Kwota: <b className="num">{zl(s.maternityLevelBenefit.monthly)}</b>/mies. do porodu.</p>
+              <p className="mt-1 text-[14px] text-fg-2">{s.maternityLevelBenefit.reason ?? "Przysługuje przy utracie pracy w ciąży z powodu upadłości, likwidacji lub śmierci pracodawcy albo zwolnienia z pracy z naruszeniem przepisów, jeśli sąd prawomocnym wyrokiem uznał je za niezgodne z prawem."} Kwota: <b className="num">{zl(s.maternityLevelBenefit.monthly)}</b>/mies. do porodu.</p>
               <LegalChip className="mt-2">art. 30 ust. 3 ustawy zasiłkowej</LegalChip>
             </div>
           </div>

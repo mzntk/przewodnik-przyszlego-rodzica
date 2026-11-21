@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/misc";
 import { Field, Input, Switch } from "@/components/ui/form";
 import { Sheet } from "@/components/ui/sheet";
-import { CATEGORY_LABELS, CHARITIES, EPDS, HOTLINES, OFFICIAL_LINKS, scoreEpds, type CharityCategory } from "@/data/support";
+import { CATEGORY_LABELS, CHARITIES, EPDS, OFFICIAL_LINKS, allPhones, scoreEpds, type CharityCategory } from "@/data/support";
 import { useMounted } from "@/hooks/use-mounted";
 import { cn, todayISO, zl } from "@/lib/utils";
 
@@ -78,22 +78,22 @@ export function SupportView() {
       <PageHeader title="Nie jesteś w tym sama" description="Szybki kontakt w nagłych sytuacjach, ścieżki prawne w trudnych chwilach, organizacje charytatywne i dyskretna ankieta samopoczucia po porodzie." />
 
       <Card>
-        <CardHeader title="Panel SOS" subtitle="Jedno dotknięcie – połączenie" icon={<Phone className="h-4 w-4" />} action={<Button size="sm" variant="ghost" onClick={() => (setC(contacts), setEditContacts(true))}><Pencil className="h-3.5 w-3.5" /> Kontakty</Button>} />
-        <CardBody className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <CardHeader title="Panel SOS" subtitle="Jedno dotknięcie – połączenie" icon={<Phone className="h-4 w-4" />} action={<Button size="sm" variant="ghost" className="shrink-0" onClick={() => (setC(contacts), setEditContacts(true))}><Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Kontakty</span></Button>} />
+        <CardBody className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           {sos.map((s) => (
-            <motion.a key={s.label} href={s.href} whileTap={{ scale: 0.96 }} className={cn("flex min-h-[112px] flex-col justify-between rounded-2xl p-4 transition hover:opacity-90", s.cls)}>
-              <s.icon className="h-7 w-7" />
-              <div>
-                <div className="text-[19px] font-semibold">{s.label}</div>
-                <div className="text-[13px] opacity-80">{s.sub}</div>
+            <motion.a key={s.label} href={s.href} whileTap={{ scale: 0.96 }} className={cn("flex min-h-[96px] min-w-0 flex-col justify-between gap-2 rounded-2xl p-3 transition hover:opacity-90 sm:min-h-[112px] sm:p-4", s.cls)}>
+              <s.icon className="h-6 w-6 sm:h-7 sm:w-7" />
+              <div className="min-w-0">
+                <div className="text-[15px] leading-tight font-bold sm:text-[19px]">{s.label}</div>
+                <div className="num mt-0.5 text-[12px] leading-tight break-words opacity-80 sm:text-[13px]">{s.sub}</div>
               </div>
             </motion.a>
           ))}
         </CardBody>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-12">
-        <div className="space-y-4 xl:col-span-7">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-12">
+        <div className="min-w-0 space-y-4 xl:col-span-7">
           <Card>
             <CardHeader title="Sytuacje trudne – ścieżka prawna" subtitle="Co Ci przysługuje i jakie dokumenty są potrzebne" icon={<Flower2 className="h-4 w-4" />} />
             <CardBody className="space-y-3">
@@ -134,7 +134,7 @@ export function SupportView() {
                   </button>
                 ))}
               </div>
-              <motion.div layout className="grid gap-2 sm:grid-cols-2">
+              <motion.div layout className="grid min-w-0 gap-2 sm:grid-cols-2">
                 <AnimatePresence mode="popLayout">
                   {filtered.map((x) => (
                     <motion.a layout key={x.name} initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} href={x.url} target="_blank" rel="noreferrer" className="group rounded-xl border border-line bg-surface p-4 transition hover:border-line-strong">
@@ -158,18 +158,18 @@ export function SupportView() {
           </Card>
         </div>
 
-        <div className="space-y-4 xl:col-span-5">
+        <div className="split-scroll min-w-0 space-y-4 xl:col-span-5">
           <EpdsCard />
           <Card>
-            <CardHeader title="Telefony wsparcia" />
+            <CardHeader title="Telefony wsparcia" subtitle="Wszystkie numery z aplikacji – bez tych z Panelu SOS powyżej" icon={<PhoneCall className="h-4 w-4" />} />
             <CardBody className="space-y-2">
-              {HOTLINES.map((h) => (
-                <a key={h.number} href={`tel:${h.number.replace(/\s/g, "")}`} className="flex items-center justify-between rounded-xl border border-line px-4 py-3 hover:border-line-strong">
-                  <div>
-                    <div className="text-[15px] font-medium">{h.name}</div>
+              {allPhones(sos.map((x) => x.href.replace("tel:", ""))).map((h) => (
+                <a key={h.number} href={`tel:${h.number.replace(/\s/g, "")}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-line px-4 py-3 hover:border-brand">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[15px] font-bold">{h.name}</div>
                     <div className="text-[13px] text-muted">{h.note}</div>
                   </div>
-                  <span className="num text-[17px] font-semibold">{h.number}</span>
+                  <span className="num shrink-0 text-[16px] font-bold text-brand sm:text-[17px]">{h.number}</span>
                 </a>
               ))}
             </CardBody>
@@ -178,8 +178,8 @@ export function SupportView() {
             <CardHeader title="Oficjalne źródła" />
             <CardBody className="space-y-2">
               {OFFICIAL_LINKS.map((l) => (
-                <a key={l.href} href={l.href} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-line px-4 py-3 text-[15px] hover:border-line-strong">
-                  <span>
+                <a key={l.href} href={l.href} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3 text-[15px] hover:border-brand">
+                  <span className="min-w-0">
                     <Badge tone="blue" className="mr-2">{l.org}</Badge>
                     {l.label}
                   </span>
@@ -239,7 +239,7 @@ function EpdsCard() {
               <div className="flex items-center justify-between text-[13px] text-muted">
                 <span>Pytanie {step + 1} z {EPDS.length}</span>
                 <div className="h-1.5 w-28 overflow-hidden rounded-full bg-surface-3">
-                  <motion.div className="h-full bg-blue" animate={{ width: `${((step + 1) / EPDS.length) * 100}%` }} />
+                  <motion.div className="h-full bg-brand" animate={{ width: `${((step + 1) / EPDS.length) * 100}%` }} />
                 </div>
               </div>
               <div className="text-[17px] font-semibold leading-snug">{q.q}</div>
@@ -272,7 +272,7 @@ function EpdsCard() {
                   </div>
                 </div>
                 {(res.selfHarm || res.level !== "niski") && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                     <a href="tel:8007022222" className="rounded-xl bg-red px-3 py-2.5 text-center text-[15px] font-semibold text-white">800 70 2222</a>
                     <a href="tel:224848801" className="rounded-xl bg-surface-2 px-3 py-2.5 text-center text-[15px] font-semibold">22 484 88 01</a>
                   </div>

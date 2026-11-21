@@ -3,15 +3,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import type { Finding } from "@/models/types";
-import { LegalChip } from "@/components/ui/badge";
+import type { Finding, InsuranceTitle } from "@/models/types";
+import { EFFECT_LABEL, EFFECT_TONE, RISKS } from "@/data/risks";
+import { Badge, LegalChip } from "@/components/ui/badge";
 import { SeverityIcon } from "@/components/ui/misc";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/store/app";
+import { resolveHref } from "@/components/layout/nav";
 
 const ORDER = { danger: 0, warning: 1, gold: 2, success: 3, info: 4 } as const;
 
 export function AlertsList({ findings, limit }: { findings: Finding[]; limit?: number }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const { account, access } = useApp();
   const sorted = [...findings].sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
   const shown = limit ? sorted.slice(0, limit) : sorted;
   return (
@@ -37,7 +41,7 @@ export function AlertsList({ findings, limit }: { findings: Finding[]; limit?: n
                         </LegalChip>
                       ))}
                       {f.action && (
-                        <Link href={f.action.href} className="ml-auto inline-flex items-center gap-1 text-[14px] font-medium text-blue hover:underline">
+                        <Link href={resolveHref(f.action.href, account, access)} className="ml-auto inline-flex items-center gap-1 text-[14px] font-bold text-brand hover:underline">
                           {f.action.label} <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                       )}
@@ -50,5 +54,41 @@ export function AlertsList({ findings, limit }: { findings: Finding[]; limit?: n
         );
       })}
     </div>
+  );
+}
+
+/** „Na co uważać” – ryzyka utraty prawa do świadczeń albo zmiany ich wymiaru i wysokości, dobrane do sytuacji rodzica. */
+export function RisksList({ title, forDad }: { title: InsuranceTitle; forDad?: boolean }) {
+  const jdg = ["jdg", "jdg_preferencyjna", "maly_zus_plus"].includes(title);
+  const voluntary = jdg || title === "zlecenie";
+  const relevant = RISKS.filter((r) => r.who === "wszyscy" || (r.who === "etat" && title === "uop") || (r.who === "zlecenie_jdg" && voluntary) || (r.who === "jdg" && jdg) || r.who === "tata" || forDad);
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <ul className="space-y-2">
+      {relevant.map((r) => {
+        const isOpen = open === r.id;
+        return (
+          <li key={r.id} className="overflow-hidden rounded-xl border border-line bg-white">
+            <button onClick={() => setOpen(isOpen ? null : r.id)} className="flex w-full items-start gap-3 px-4 py-3 text-left" aria-expanded={isOpen}>
+              <Badge tone={EFFECT_TONE[r.effect]} className="mt-0.5 shrink-0">
+                {EFFECT_LABEL[r.effect]}
+              </Badge>
+              <span className="min-w-0 flex-1 text-[15px] leading-snug font-bold">{r.title}</span>
+              <ChevronDown className={cn("mt-0.5 h-4 w-4 shrink-0 text-muted transition-transform", isOpen && "rotate-180")} />
+            </button>
+            {isOpen && (
+              <div className="space-y-2 px-4 pb-4 text-[15px] leading-relaxed text-fg-2">
+                <p>{r.what}</p>
+                <p className="rounded-lg bg-brand-soft px-3 py-2">
+                  <b className="text-brand">Jak tego uniknąć: </b>
+                  {r.avoid}
+                </p>
+                <LegalChip>{r.legal}</LegalChip>
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

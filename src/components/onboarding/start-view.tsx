@@ -10,17 +10,19 @@ import { Field, Input, Select, Switch } from "@/components/ui/form";
 import { Sheet } from "@/components/ui/sheet";
 import { ChildEditor, ParentEditor, SickLeaveEditor } from "@/components/forms/case-editors";
 import { ZusFetch } from "./zus-fetch";
-import { ZusLogo } from "@/components/layout/app-shell";
+import { InviteBox } from "@/components/partner/add-partner";
+import { AppBrand } from "@/components/layout/app-shell";
 import { useApp } from "@/store/app";
 import { useMounted } from "@/hooks/use-mounted";
 import { useCalculation } from "@/hooks/use-calculation";
 import { emptyCase } from "@/data/profiles";
 import { cn, zl0 } from "@/lib/utils";
+import { LOSS_HINT, LOSS_INFO } from "@/components/forms/case-editors";
 
 const STEPS = [
   { id: "dziecko", title: "Kiedy pojawi się dziecko?", sub: "Termin porodu lub przyjęcia dziecka zasila kalendarz, terminy i kalkulator.", icon: Baby },
   { id: "ubezpieczenie", title: "Twoja sytuacja ubezpieczeniowa", sub: "Uzupełniliśmy dane z ZUS – sprawdź je i popraw, jeśli coś się zmieniło.", icon: UserRound },
-  { id: "partner", title: "Drugi rodzic", sub: "Krok opcjonalny – pozwoli zaplanować urlop ojcowski i 9 tygodni rodzicielskiego taty.", icon: Users },
+  { id: "partner", title: "Drugi rodzic", sub: "Krok opcjonalny – partner dołączy z linku i sam uzupełni swoje dane (np. wielkość firmy, zarobki).", icon: Users },
   { id: "szczegolne", title: "Okoliczności szczególne", sub: "Zaznacz tylko to, co Cię dotyczy – resztę możesz zmienić później w profilu.", icon: Sparkles },
 ] as const;
 
@@ -74,7 +76,7 @@ function SyncBar() {
     <>
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="flex items-center gap-3 px-4 py-2.5 text-[14px]">
-          {summary ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green" /> : <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue" />}
+          {summary ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green" /> : <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand" />}
           <AnimatePresence mode="wait">
             <motion.span key={summary ? "done" : msg} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="flex-1 truncate text-fg-2">
               {summary ? "Dane z PUE/eZUS pobrane – formularz uzupełniony automatycznie" : SYNC_MESSAGES[msg]}
@@ -87,7 +89,7 @@ function SyncBar() {
           )}
         </div>
         {!summary ? (
-          <motion.div className="h-0.5 bg-blue" initial={{ width: "4%" }} animate={{ width: "92%" }} transition={{ duration: 3.2, ease: "easeOut" }} />
+          <motion.div className="h-0.5 bg-brand" initial={{ width: "4%" }} animate={{ width: "92%" }} transition={{ duration: 3.2, ease: "easeOut" }} />
         ) : (
           <div className="flex flex-wrap gap-1.5 border-t border-line px-4 py-2">
             <Badge tone={summary.insured ? "green" : "red"}>{summary.insured ? "Ubezpieczenie chorobowe: TAK" : "Brak ubezpieczenia chorobowego"}</Badge>
@@ -127,12 +129,54 @@ function Preview() {
   );
 }
 
+/** Partner z zaproszenia: loguje się własnym mObywatelem i SAM uzupełnia swoje dane (mama nie musi ich znać). */
+function PartnerStart() {
+  const router = useRouter();
+  const { data, setData, invite, setInvite } = useApp();
+  const [synced, setSynced] = useState(false);
+  useEffect(() => {
+    if (!data.father) setData((d) => ((d.father = { ...emptyCase().mother, role: "ojciec", firstName: invite?.partnerName || "Partner", lastName: d.mother.lastName, payer: { name: "", nip: "", insuredCount: 0 } }), d));
+    const t = setTimeout(() => setSynced(true), 2200);
+    return () => clearTimeout(t);
+  }, [data.father, invite?.partnerName, setData]);
+  const finish = () => {
+    if (invite) setInvite({ ...invite, completedAt: new Date().toISOString() });
+    setData((d) => {
+      if (d.plan.fatherParentalWeeks === 0) d.plan.fatherParentalWeeks = 9;
+      d.plan.paternity.enabled = true;
+      return d;
+    });
+    toast.success("Dane zapisane – witaj w Przewodniku!");
+    router.replace("/panel");
+  };
+  return (
+    <div className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col px-4 pt-5 pb-10 sm:px-6">
+      <AppBrand />
+      <div className="mt-5 flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-[14px]">
+        {synced ? <CheckCircle2 className="h-4 w-4 shrink-0 text-brand" /> : <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand" />}
+        <span className="text-fg-2">{synced ? "Dane z Twojego konta PUE/eZUS pobrane – sprawdź i uzupełnij poniżej." : "Pobieranie Twoich danych z PUE/eZUS (mObywatel)…"}</span>
+      </div>
+      <h1 className="mt-7 text-[24px] leading-tight font-black tracking-tight sm:text-[28px]">Twoje dane jako drugiego rodzica</h1>
+      <p className="mt-1 text-[16px] text-muted">
+        {data.mother.firstName ? `${data.mother.firstName} zaprosił${data.mother.firstName.endsWith("a") ? "a" : "/a"} Cię do wspólnego konta. ` : ""}Te informacje znasz tylko Ty – na ich podstawie policzymy Twój urlop ojcowski i 9 tygodni rodzicielskiego.
+      </p>
+      <div className="mt-6 rounded-2xl border border-line bg-surface p-5 sm:p-6">{data.father && <ParentEditor who="father" />}</div>
+      <div className="sticky bottom-3 mt-6 flex justify-end rounded-xl border border-line bg-bg-elevated p-2">
+        <Button onClick={finish}>
+          <Check className="h-4 w-4" /> Zapisz i przejdź do aplikacji
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function StartView() {
   const mounted = useMounted();
   const router = useRouter();
   const { data, setData, completeOnboarding, account } = useApp();
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
+  if (mounted && account === "tata") return <PartnerStart />;
   if (!mounted || account !== "mama") return null;
   const S = STEPS[step];
   const go = (n: number) => (setDir(n > step ? 1 : -1), setStep(n));
@@ -146,8 +190,7 @@ export function StartView() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col px-4 pt-5 pb-10 sm:px-6">
       <div className="flex items-center justify-between">
-        <ZusLogo className="h-7" priority />
-        
+        <AppBrand />
       </div>
       <div className="mt-5">
         <SyncBar />
@@ -157,7 +200,7 @@ export function StartView() {
         {STEPS.map((s, i) => (
           <button key={s.id} onClick={() => i < step && go(i)} className={cn("flex-1", i < step && "cursor-pointer")} aria-label={s.title}>
             <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
-              <motion.div className="h-full rounded-full bg-blue" animate={{ width: i <= step ? "100%" : "0%" }} transition={{ type: "spring", stiffness: 160, damping: 26 }} />
+              <motion.div className="h-full rounded-full bg-brand" animate={{ width: i <= step ? "100%" : "0%" }} transition={{ type: "spring", stiffness: 160, damping: 26 }} />
             </div>
           </button>
         ))}
@@ -185,7 +228,7 @@ export function StartView() {
               <div className="space-y-5">
                 <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Drugi rodzic">
                   {[
-                    { on: true, title: "Dodaj partnera teraz", text: "Policzymy jego urlop i podzielicie się formalnościami." },
+                    { on: true, title: "Zaproś partnera teraz", text: "Dostanie link – zaloguje się swoim mObywatelem i sam wpisze swoje dane." },
                     { on: false, title: "Pominę – dodam później", text: "Partnera dodasz w każdej chwili w Ustawieniach lub na pulpicie." },
                   ].map((o) => {
                     const active = !!data.father === o.on;
@@ -208,7 +251,17 @@ export function StartView() {
                     );
                   })}
                 </div>
-                {data.father && <ParentEditor who="father" />}
+                {data.father && (
+                  <div className="space-y-4">
+                    <InviteBox partnerName={data.father.firstName === "Partner" ? "" : data.father.firstName} />
+                    <details className="rounded-xl border border-line px-4 py-3">
+                      <summary className="cursor-pointer text-[15px] font-bold text-fg-2">Partner nie ma mObywatela? Wpiszę jego dane sama</summary>
+                      <div className="mt-4">
+                        <ParentEditor who="father" />
+                      </div>
+                    </details>
+                  </div>
+                )}
               </div>
             )}
             {S.id === "szczegolne" && (
@@ -221,7 +274,7 @@ export function StartView() {
                     <Input type="date" value={data.mother.contractEndDate ?? ""} onChange={(e) => setData((d) => ((d.mother.contractEndDate = e.target.value || undefined), d))} />
                   </Field>
                 )}
-                <Field label="Utrata pracy w ciąży">
+                <Field label="Utrata pracy w ciąży" info={LOSS_INFO} hint={LOSS_HINT[data.mother.employmentLossReason ?? "brak"]}>
                   <Select
                     value={data.mother.employmentLossReason ?? "brak"}
                     onChange={(v) => setData((d) => ((d.mother.employmentLossReason = v === "brak" ? null : (v as never)), d))}
@@ -230,7 +283,7 @@ export function StartView() {
                       { value: "upadlosc", label: "Upadłość pracodawcy" },
                       { value: "likwidacja", label: "Likwidacja pracodawcy" },
                       { value: "smierc_pracodawcy", label: "Śmierć pracodawcy" },
-                      { value: "bezprawne_zwolnienie", label: "Bezprawne zwolnienie (wyrok)" },
+                      { value: "bezprawne_zwolnienie", label: "Zwolnienie niezgodne z prawem – potwierdzone wyrokiem sądu" },
                     ]}
                   />
                 </Field>

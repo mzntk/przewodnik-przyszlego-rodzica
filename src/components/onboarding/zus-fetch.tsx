@@ -1,12 +1,11 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertOctagon, Building2, CheckCircle2, FileHeart, Loader2, Mail, Receipt, Send, ShieldCheck, ShieldX } from "lucide-react";
+import { AlertOctagon, Building2, CheckCircle2, FileHeart, Loader2, Mail, Receipt, ShieldCheck, ShieldX } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge, LegalChip } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useApp } from "@/store/app";
+import { ZusInbox } from "@/components/messages/zus-inbox";
 import { cn, dShort, zl } from "@/lib/utils";
 import { daysBetween } from "@/lib/utils";
 
@@ -29,7 +28,6 @@ export function ZusFetch() {
   const { profileId, setZusFetched, zusFetched, loginMethod } = useApp();
   const [data, setData] = useState<ZusData | null>(null);
   const [done, setDone] = useState(0);
-  const [question, setQuestion] = useState("");
 
   useEffect(() => {
     if (!profileId) return;
@@ -117,7 +115,7 @@ export function ZusFetch() {
                   <div className="flex h-16 items-end gap-1">
                     {data.insurance.contributions12m.map((m) => {
                       const max = Math.max(...data.insurance.contributions12m.map((x) => x.base));
-                      return <div key={m.month} title={`${m.month}: ${zl(m.base)}`} className="flex-1 rounded-t-md bg-blue/70" style={{ height: `${Math.max(8, (m.base / max) * 100)}%` }} />;
+                      return <div key={m.month} title={`${m.month}: ${zl(m.base)}`} className="flex-1 rounded-t-md bg-brand/70" style={{ height: `${Math.max(8, (m.base / max) * 100)}%` }} />;
                     })}
                   </div>
                 </div>
@@ -169,32 +167,10 @@ export function ZusFetch() {
               </Card>
             </div>
 
-            <Card className="xl:col-span-2">
-              <CardHeader title="Wiadomości PUE/eZUS" subtitle="Zapytaj ZUS w razie wątpliwości – odpowiedź trafi na Twój profil (symulacja)." icon={<Mail className="h-4 w-4" />} />
-              <CardBody className="space-y-3">
-                {data.messages.map((m, i) => (
-                  <div key={i} className="rounded-xl bg-surface-2 px-4 py-3 text-[15px]">
-                    <div className="mb-1 flex items-center justify-between text-[13px] text-muted">
-                      <span>{m.from}</span>
-                      <span>{dShort(m.date)}</span>
-                    </div>
-                    {m.text}
-                  </div>
-                ))}
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!question.trim()) return;
-                    toast.success("Wiadomość wysłana do ZUS przez PUE/eZUS", { description: "Symulacja – szacowany czas odpowiedzi: 3 dni robocze." });
-                    setQuestion("");
-                  }}
-                  className="flex gap-2"
-                >
-                  <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Np. czy ZUS otrzymał już Z-3 od pracodawcy?" className="h-10 flex-1 rounded-xl border border-line bg-surface-2 px-3 text-sm outline-none focus:border-line-strong" />
-                  <Button type="submit" variant="secondary">
-                    <Send className="h-4 w-4" /> Wyślij
-                  </Button>
-                </form>
+            <Card className="lg:col-span-2">
+              <CardHeader title="Wiadomości PUE/eZUS" subtitle="Zapytaj ZUS – odpowiedź pojawi się poniżej i pod dzwonkiem." icon={<Mail className="h-4 w-4" />} />
+              <CardBody>
+                <ZusInbox seed={data.messages} />
               </CardBody>
             </Card>
           </motion.div>

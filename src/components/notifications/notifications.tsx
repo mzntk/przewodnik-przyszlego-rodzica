@@ -4,7 +4,7 @@ import { Popover } from "radix-ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { useApp, type AppNotification } from "@/store/app";
+import { useApp, type AppNotification, type NotifyTopic } from "@/store/app";
 import { useCalculation } from "@/hooks/use-calculation";
 import { useCases } from "@/components/cases/case-ui";
 import { statusLabel } from "@/models/case-status";
@@ -14,14 +14,21 @@ import { cn, plural } from "@/lib/utils";
 const SYNC_EVERY_MS = 10_000;
 const MAX_TOASTS_PER_RUN = 2;
 
-function deliver(n: AppNotification, toastBudget: { left: number }, onOpen: () => void) {
-  const { notify } = useApp.getState();
-  if (notify.inApp && toastBudget.left > 0) {
+const TOPIC_OF: Record<AppNotification["kind"], NotifyTopic> = { termin: "terminy", status: "statusy", system: "wiadomosci" };
+
+/** Dostarczenie powiadomienia kanałami wybranymi w Ustawieniach → Powiadomienia (osobno dla każdego tematu). */
+export function deliver(n: AppNotification, toastBudget: { left: number }, onOpen: () => void, topic: NotifyTopic = TOPIC_OF[n.kind]) {
+  const { notify, notifyPrefs, email } = useApp.getState();
+  const pref = notifyPrefs[topic];
+  if (notify.inApp && pref.inApp && toastBudget.left > 0) {
     toastBudget.left--;
-    toast(n.title, { description: n.body, icon: n.kind === "status" ? <FileCheck2 className="h-4 w-4 text-brand" /> : <CalendarClock className="h-4 w-4 text-orange" />, action: { label: "Pokaż", onClick: onOpen } });
+    toast(n.title, { description: n.body, duration: 3500, icon: n.kind === "status" ? <FileCheck2 className="h-4 w-4 text-brand" /> : <CalendarClock className="h-4 w-4 text-orange" />, action: { label: "Pokaż", onClick: onOpen } });
   }
-  if (notify.push && typeof Notification !== "undefined" && Notification.permission === "granted") {
-    new Notification(n.title, { body: n.body, icon: "/logo-zus.png", tag: n.id });
+  if (notify.push && pref.push && typeof Notification !== "undefined" && Notification.permission === "granted") {
+    new Notification(n.title, { body: n.body, icon: "/brand/logo-aplikacji.png", tag: n.id });
+  }
+  if (pref.email && email) {
+    void fetch("/api/notify/email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: email, subject: `Przewodnik Przyszłego Rodzica: ${n.title}`, body: n.body }) }).catch(() => null);
   }
 }
 
@@ -55,6 +62,21 @@ export function useBackgroundSync() {
       if (pushNotification(n)) deliver({ ...n, at: "", read: false }, budget, () => router.push(n.href));
     }
   }, [result, account, pushNotification, router]);
+
+  // Wizyty i wydarzenia z kalendarza – przypomnienie dzień wcześniej i w dniu wydarzenia
+  const appointments = useApp((s) => s.appointments);
+  useEffect(() => {
+    if (!account || account === "admin") return;
+    const today = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const budget = { left: 1 };
+    for (const a of appointments) {
+      if (a.date !== today && a.date !== tomorrow) continue;
+      if (account === "tata" && !a.shared && a.author !== "tata") continue;
+      const n = { id: `w-${a.id}-${a.date}`, kind: "termin" as const, title: `${a.date === today ? "Dziś" : "Jutro"}${a.time ? ` o ${a.time}` : ""}: ${a.title}`, body: a.place ? `Miejsce: ${a.place}` : "Wydarzenie z Twojego kalendarza ciąży.", href: "/ciaza" };
+      if (pushNotification(n)) deliver({ ...n, at: "", read: false }, budget, () => router.push(n.href), "wizyty");
+    }
+  }, [appointments, account, pushNotification, router]);
 
   // Statusy spraw z ZUS
   useEffect(() => {

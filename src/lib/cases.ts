@@ -10,7 +10,7 @@ export interface CaseItem {
   formId?: string;
 }
 
-const FORM_ID: Partial<Record<DocId, string>> = {
+export const FORM_ID: Partial<Record<DocId, string>> = {
   "URLOP-MAC-PRZED": "mat-przed",
   "URLOP-RODZ": "rodzicielski",
   "URLOP-RODZ-TATA": "rodzicielski-tata",

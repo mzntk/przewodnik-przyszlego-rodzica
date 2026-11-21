@@ -47,7 +47,9 @@ export function navFor(account: Account | null, access: PartnerAccess): NavGroup
 
 export function mobileTabsFor(account: Account | null, access: PartnerAccess): NavItem[] {
   if (account === "admin") return [I.admin, I.kalkulator, I.dokumenty];
-  if (account === "tata") return [I.pulpit, ...(access.formalities || access.leave ? [I.partner] : []), I.ciaza, I.wsparcie];
+  // Ten sam układ dla obu rodziców: Start · Sprawy · Ciąża · Pieniądze.
+  // Tata widzi „Pieniądze” tylko, gdy mama udostępni kwoty – wtedy w tym miejscu jest „Pomoc”.
+  if (account === "tata") return [I.pulpit, ...(access.formalities || access.leave ? [I.partner] : []), I.ciaza, access.finances ? I.swiadczenia : I.wsparcie];
   return [I.pulpit, I.wnioski, I.ciaza, I.swiadczenia];
 }
 
@@ -59,3 +61,17 @@ export function canAccess(path: string, account: Account | null, access: Partner
 }
 
 export const BRAND_ICON = Baby;
+
+/**
+ * Spójna logika przycisków: link do sekcji niedostępnej dla danego konta zamieniamy na jej odpowiednik
+ * (np. „Moje sprawy” mamy → „Moje sprawy i urlop” taty), zamiast prowadzić na ekran „brak dostępu”.
+ */
+export function resolveHref(href: string, account: Account | null, access: PartnerAccess): string {
+  const path = href.split(/[?#]/)[0];
+  if (canAccess(path, account, access)) return href;
+  if (account === "tata") {
+    if (path === "/wnioski" || path === "/kalkulator") return access.formalities || access.leave ? `/partner${path === "/kalkulator" ? "#urlop" : ""}` : "/panel";
+    if (path === "/swiadczenia" || path === "/dokumenty") return "/panel";
+  }
+  return navFor(account, access)[0]?.items[0]?.href ?? "/panel";
+}

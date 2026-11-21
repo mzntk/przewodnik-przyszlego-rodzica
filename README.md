@@ -6,6 +6,12 @@ przez ustalenie uprawnień, wybór najkorzystniejszego wariantu zasiłku i zło�
 
 Stan prawny: po 24.10.2026 r. (druki **ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15A, Z-15B, Z-12**; ZUR, ZAO i Z-3b zlikwidowane).
 
+## Demo online
+
+**https://przewodnik-przyszlego-rodzica.vercel.app**
+
+Logowanie: wybierz rolę (Mama lub Tata / Partner) → „Zaloguj przez mObywatel” (symulacja) → profil testowy. Przykładowe dokumenty PDF do sprawdzenia: menu „Sprawdź dokument”. Panel parametrów: link „Wejście dla administratora ZUS” na ekranie logowania.
+
 ## Uruchomienie
 
 ```bash

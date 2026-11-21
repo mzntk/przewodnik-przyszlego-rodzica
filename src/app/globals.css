@@ -1,26 +1,151 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
+/*
+ * Jasny, spokojny motyw dla aplikacji publicznej.
+ * Tło białe, karty w bardzo delikatnej szarości, jedna warstwa „elewacji” (obramowanie, bez cieni na kartach).
+ * Kolory statusów dobrane do kontrastu ≥ 4.5:1 na białym tle.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #ffffff;
+  --bg-elevated: #ffffff;
+  --surface: #f7f8fa;
+  --surface-2: #eff1f4;
+  --surface-3: #e4e7ec;
+  --border: #e3e6eb;
+  --border-strong: #c9ced6;
+  --text: #111827;
+  --text-2: #374151;
+  --muted: #5b6472;
+  --brand: #00843d;
+  --brand-hover: #006f33;
+  --blue: #1d5fbf;
+  --green: #0b7a3b;
+  --orange: #b45309;
+  --gold: #8a6100;
+  --red: #c0122c;
+  --blue-soft: #eaf1fb;
+  --green-soft: #e8f5ed;
+  --orange-soft: #fdf1e4;
+  --gold-soft: #fbf4e2;
+  --red-soft: #fcebee;
+  --shadow: 0 1px 2px rgba(17, 24, 39, 0.06), 0 8px 24px -12px rgba(17, 24, 39, 0.18);
+  --ring: rgba(0, 132, 61, 0.45);
+  color-scheme: light;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-blue: var(--blue);
+  --color-green: var(--green);
+  --color-orange: var(--orange);
+  --color-gold: var(--gold);
+  --color-red: var(--red);
+  --color-blue-soft: var(--blue-soft);
+  --color-green-soft: var(--green-soft);
+  --color-orange-soft: var(--orange-soft);
+  --color-gold-soft: var(--gold-soft);
+  --color-red-soft: var(--red-soft);
+  --font-sans: "Lato", Helvetica, sans-serif;
+  --shadow-card: var(--shadow);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+::selection {
+  background: #cfe8d9;
+  color: var(--text);
+}
+
+* {
+  caret-color: var(--brand);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  opacity: 0.4;
+}
+
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+
+@media print {
+  aside,
+  nav,
+  header,
+  .no-print {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes term-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

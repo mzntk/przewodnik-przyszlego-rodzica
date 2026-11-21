@@ -1,36 +1,135 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Zasiłkowy Przewodnik Przyszłego Rodzica · ZUS 2026
 
-## Getting Started
+MVP aplikacji webowej (RWD) na HackNation 2026 – wyzwanie Zakładu Ubezpieczeń Społecznych.
+Przeprowadza osoby planujące rodzicielstwo, kobiety w ciąży, rodziców biologicznych, adopcyjnych i rodziny zastępcze
+przez ustalenie uprawnień, wybór najkorzystniejszego wariantu zasiłku i złożenie kompletnych wniosków we właściwym miejscu.
 
-First, run the development server:
+Stan prawny: po 24.10.2026 r. (druki **ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15A, Z-15B, Z-12**; ZUR, ZAO i Z-3b zlikwidowane).
+
+## Uruchomienie
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3000
+npm test             # testy silnika (15 reguł prawnych)
+npm run samples      # (opcjonalnie) ponowne wygenerowanie przykładowych PDF
+npm run build && npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Opcjonalnie – funkcje AI (Claude). Bez klucza aplikacja działa w pełni, AI zastępuje parser regułowy / baza wiedzy:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env.local   # ustaw ANTHROPIC_API_KEY
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Przepływ i nawigacja
 
-## Learn More
+1. **`/` – logowanie** (bez menu): logo ZUS, wybór roli **Mama** lub **Tata / Partner**, symulowane „Zaloguj przez mObywatel”, dyskretne wejście administratora. Link zaproszenia (`/?zaproszenie=KOD`) od razu wybiera rolę partnera.
+2. **`/start` – kreator profilu Mamy** (pierwsze logowanie): termin porodu → sytuacja ubezpieczeniowa → drugi rodzic (krok **opcjonalny**, „Pominę – dodam później”) → okoliczności szczególne. W tle pasek synchronizacji z PUE/eZUS.
+3. **Aplikacja** – proste etykiety menu:
 
-To learn more about Next.js, take a look at the following resources:
+| Sekcja | Ekran | Ścieżka |
+|---|---|---|
+| — | **Start** – „Na teraz” (od najpilniejszych; sprawy już złożone znikają) + „Moje sprawy w ZUS” ze statusami + tracker ciąży; karta „Dodaj partnera”, jeśli go brak | `/panel` |
+| — | **Moja ciąża** – kalendarz (termin porodu, okna badań, wizyty, terminy ZUS/USC), dziennik nastroju i objawów, karta tygodnia, torba i wyprawka, poradniki (połóg na początku), raport PDF dla lekarza | `/ciaza` |
+| Pieniądze i formalności | **Moje sprawy** – wnioski i dokumenty pogrupowane: Do zrobienia / W toku / Załatwione | `/wnioski` |
+| | **Ile i kiedy dostanę** – oś czasu świadczeń, alerty, terminy | `/swiadczenia` |
+| | **Policz zasiłek** – kalkulator (7 zakładek) | `/kalkulator` |
+| | **Sprawdź dokument** – walidator PDF i sprawy testowe | `/dokumenty` |
+| Pomoc | **Pomoc i telefony** · **Gdzie to załatwić** (mapa) · **Ustawienia** (profil, dane z ZUS, partner, powiadomienia) | `/wsparcie`, `/placowki`, `/ustawienia` |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Konto Taty / Partnera** – osobne logowanie. Widzi tylko sekcje włączone przez Mamę w *Ustawienia → Partner*. Partnera można dodać w każdej chwili (pulpit lub ustawienia) i wygenerować kod/link zaproszenia.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Administrator ZUS** – parametry legislacyjne (`/admin`), kalkulator i walidator PDF.
 
-## Deploy on Vercel
+## Sprawy, statusy i powiadomienia
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Brak ręcznego odhaczania dokumentów urzędowych.** Każda sprawa ma status nadawany przez system (symulacja synchronizacji z ZUS co 10 s, `src/services/case-sync.ts`): *Niezłożony → Wysłany / zarejestrowany → W trakcie weryfikacji → Przyznany* albo *Wymaga uzupełnienia*. Tempo demonstracyjne jest przyspieszone (15 s / 45 s).
+- **Panel sprawy** (klik w dowolny wniosek): status i etapy, a pod nimi trzy sekcje – *Jak wypełnić* (z najczęstszymi błędami), *Co przygotować wcześniej*, *Wymagane załączniki* dopasowane do sytuacji (stan prawny po 24.10.2026). Do tego wypełniony PDF i wysyłka (symulacja). Treści: `src/data/documents.ts`.
+- **Powiadomienia**: dzwonek z licznikiem, toasty w rogu ekranu i opcjonalne systemowe powiadomienia przeglądarki (Notification API). Przypomnienia 14, 7 i 3 dni przed terminem oraz w dniu terminu, a także o każdej zmianie statusu. Włączanie i wyłączanie: *Ustawienia → Powiadomienia*.
+- **Tooltipy** przy nazwach świadczeń, urlopów i symbolach druków: „Co to jest?” i „Dla kogo?” – po najechaniu, focusie z klawiatury lub dotknięciu. Słownik: `src/data/glossary.ts`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Wygląd
+
+Jasny motyw (białe tło, karty w delikatnej szarości, jedno obramowanie bez cieni), czcionka **Lato** z fallbackiem Helvetica, akcent w zieleni ZUS, kontrast tekstu ≥ 4.5:1, tekst podstawowy 16 px. Zgodnie z wytycznymi [impeccable](https://github.com/pbakaus/impeccable): bez gradientów, rozmyć, emoji w roli ikon i zagnieżdżonych kart; ruch krótki (ease-out) z obsługą `prefers-reduced-motion`.
+
+## Architektura
+
+```
+src/
+├── models/            # typy i schematy (LegalConfig, CaseInput, CalculationResult, ExtractedDocument – zod)
+├── services/
+│   ├── engine/        # DETERMINISTYCZNY silnik uprawnień i kalkulator (zero AI)
+│   │   ├── base.ts          # podstawa wymiaru – art. 36–49 (w tym 48a)
+│   │   ├── eligibility.ts   # tytuł ubezpieczenia, wyczekiwanie (art. 4), zadłużenie (art. 2a), płatnik (art. 61)
+│   │   ├── sickness.ts      # chorobowy w ciąży, 33/14 dni, 270 dni, kod B, rehabilitacyjne
+│   │   ├── maternity.ts     # macierzyński, uzupełniający, rodzicielski, łączenie z pracą, ojcowski, adopcja, 81,5%
+│   │   ├── deadlines.ts     # terminy graniczne
+│   │   ├── family.ts        # 800+, becikowe, Aktywny Rodzic, świadczenie rodzicielskie
+│   │   └── index.ts         # calculate() + Red Flags
+│   ├── documents/     # ekstrakcja PDF (unpdf), parser regułowy, walidator Zał. 1–7, PESEL/NIP/REGON
+│   ├── ai/            # ⚡ funkcje wspierane przez AI (wyraźnie oddzielone)
+│   ├── config/        # magazyn konfiguracji legislacyjnej (panel admina)
+│   └── integrations.ts# symulacje mObywatel / PUE / e-ZLA / USC / wysyłki
+├── app/api/           # REST API (route handlers)
+├── app/*              # ekrany (logowanie, kreator, pulpit, ciąża, zasiłki, wsparcie, admin)
+├── components/        # UI (Radix, Vaul, Sonner, Framer Motion, Tailwind)
+└── data/              # profile testowe, sprawy PDF, baza wiedzy, katalog wsparcia, mapa, edukacja
+tests/engine.test.ts   # testy reguł prawnych
+public/samples/*.pdf   # zanonimizowane (fikcyjne) dokumenty testowe
+```
+
+**Backend:** zgodnie z dopuszczoną elastycznością backend zrealizowano w TypeScript (Next.js Route Handlers – REST API),
+by dostarczyć jedno spójne, łatwe do wdrożenia MVP (Azure App Service / Container Apps). Silnik jest czystym modułem TS –
+gotowy do przeniesienia do osobnej usługi. Konfiguracja: plik JSON (`.data/`) – w produkcji tabela PostgreSQL z wersjonowaniem.
+
+### REST API
+
+| Metoda | Endpoint | Opis |
+|---|---|---|
+| POST | `/api/calculate` | `CaseInput` → `CalculationResult` (deterministycznie) |
+| POST | `/api/documents/analyze` | PDF (multipart) lub `{ sampleId }` → ekstrakcja, braki formalne, werdykt |
+| GET | `/api/documents/samples` | lista spraw testowych |
+| GET / PATCH | `/api/config` | parametry legislacyjne (PATCH: nagłówek `x-role: admin`) |
+| POST | `/api/config/reset` · GET `/api/config/history` | reset / historia zmian |
+| POST | `/api/bot` | ⚡ ZUS-bot |
+| GET | `/api/integrations/zus?profile=` | symulacja PUE/eZUS, zaświadczenia o zadłużeniu, e-ZLA |
+| POST | `/api/integrations/submit` | symulacja wysyłki wniosku + estymacja czasu |
+| POST | `/api/integrations/status` | symulacja pobrania statusów spraw z ZUS |
+| GET | `/api/profiles`, `/api/health` | profile testowe, status |
+
+## ⚡ Funkcje wspierane przez AI (wymóg regulaminu)
+
+AI (model Claude, `claude-opus-5-5`) jest używane **wyłącznie** w dwóch miejscach, oznaczonych w UI etykietą „Wspierane przez AI”:
+
+1. **Mapowanie dokumentów (Moduł 4)** – `src/services/ai/extract.ts`: Structured Output do ustandaryzowanego JSON
+   oraz odczyt skanów bez warstwy tekstowej (OCR przez model wizyjny). Wynik jest scalany z parserem regułowym
+   (identyfikatory z poprawną sumą kontrolną mają pierwszeństwo), a następnie walidowany deterministycznie.
+2. **ZUS-bot** – `src/services/ai/bot.ts`: odpowiedzi prostym językiem wyłącznie na podstawie bazy wiedzy (streszczenia
+   Poradnika ZUS 2026); bez klucza API działa wyszukiwanie regułowe. Włączony server-side fallback przy odmowie modelu.
+
+**AI nigdy nie liczy kwot ani nie rozstrzyga o uprawnieniach** – robi to `services/engine` (pokryty testami).
+Pozostałe funkcje (kalkulator, walidator, routing płatnika, terminy, Red Flags, panel admina) są w 100% deterministyczne.
+
+## Profile testowe (3-minutowe demo)
+
+1. **Anna** – UoP w małej firmie (12 os. → ZUS), L4 z kodem B (reset 270 dni), łączenie rodzicielskiego z pracą na 1/2 etatu.
+2. **Magdalena** – JDG od 6 mies. (art. 48a), zaległość 312,45 zł > 48,06 zł → blokada art. 2a.
+3. **Karolina i Tomasz** – bliźnięta z 27. tyg. (940 g), 52 dni szpitala → uzupełniający 8 tyg., wariant 81,5%, podział urlopu.
+4. **Julia** – studentka < 26 lat na zleceniu → brak ubezpieczenia → świadczenie rodzicielskie.
+5. **Ewa i Marek** – adopcja 3-latka, zlecenie z dobrowolnym chorobowym, płatnik > 20 os.
+
+Sprawy PDF w `public/samples` (dane fikcyjne, sumy kontrolne PESEL/NIP poprawne – poza celowo błędnym dokumentem).
+
+## Hierarchia źródeł
+
+Pełna treść zadania ZUS → Załącznik (wymiary/stawki 2026) → ustawa zasiłkowa → Kodeks pracy → rozp. z 27.09.2026 (Zał. 1–7, § 13 ust. 2)
+→ rozp. z 11.03.2025 (wnioski urlopowe) → Poradnik ZUS 2026. Każdy wynik silnika niesie cytowanie podstawy prawnej.
+
+## Co jest symulowane / ograniczenia MVP
+
+- mObywatel, PUE/eZUS, e-ZLA, zaświadczenie o niezaleganiu, USC i wysyłka wniosków – **symulacje** (wymóg zadania).
+- Estymacja czasu rozpatrywania – jawny model heurystyczny (w produkcji: model ML na danych historycznych).
+- OCR skanów wymaga klucza AI; bez niego aplikacja informuje o braku warstwy tekstowej.
+- Mapa i katalog organizacji – dane demonstracyjne do weryfikacji przez ZUS przed wdrożeniem.
+- Kwoty brutto (przed zaliczką PIT).

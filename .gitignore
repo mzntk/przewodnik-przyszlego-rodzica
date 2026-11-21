@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# lokalna konfiguracja legislacyjna (panel admina)
+/.data
+
+!.env.example

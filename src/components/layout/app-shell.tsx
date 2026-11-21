@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { CaseSheet } from "@/components/cases/case-ui";
 import { NotificationBell, useBackgroundSync } from "@/components/notifications/notifications";
 import { SearchButton } from "./search-dialog";
+import { TestModeBox } from "@/components/onboarding/test-mode";
 
 /** Logo ZUS – zawsze w oryginalnych proporcjach (wysokość ustalana klasą, szerokość automatyczna, bez rozciągania). */
 export function ZusLogo({ className, priority }: { className?: string; priority?: boolean }) {
@@ -138,6 +139,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mt-8 flex-1 overflow-y-auto">
             <NavGroups />
           </div>
+          {account !== "admin" && <TestModeBox className="mx-1 mb-3" compact />}
           <AccountCard />
         </aside>
 
@@ -193,6 +195,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <Sheet open={moreOpen} onOpenChange={setMoreOpen} title="Menu">
           <NavGroups onNavigate={() => setMoreOpen(false)} />
+          {account !== "admin" && <TestModeBox className="mt-6" />}
           <div className="mt-6 border-t border-line pt-4">
             <Button variant="secondary" className="w-full" onClick={() => (logout(), setMoreOpen(false), router.replace("/"))}>
               <LogOut className="h-4 w-4" /> Wyloguj się

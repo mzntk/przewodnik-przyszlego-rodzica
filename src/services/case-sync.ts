@@ -4,6 +4,7 @@
  */
 import type { CaseState, CaseStatus } from "@/models/case-status";
 import type { DocId } from "@/data/documents";
+import { getFamily } from "@/data/families";
 
 /** Stan spraw zastany w systemach ZUS dla profili testowych. */
 const SEED: Record<string, Partial<Record<DocId, { status: CaseStatus; note?: string }>>> = {
@@ -45,7 +46,7 @@ export interface SyncInput {
 }
 
 export function syncStatuses(profileId: string | null, cases: SyncInput[], now: Date): Record<string, CaseState> {
-  const seed = (profileId && SEED[profileId]) || {};
+  const seed = (profileId && (SEED[profileId] ?? generatedSeed(profileId))) || {};
   const at = now.toISOString();
   const out: Record<string, CaseState> = {};
   for (const { id, state } of cases) {
@@ -71,5 +72,27 @@ export function syncStatuses(profileId: string | null, cases: SyncInput[], now: 
     }
     out[id] = next === state.status ? state : { ...state, status: next, note, updatedAt: at };
   }
+  return out;
+}
+
+/** Stan spraw dla wylosowanych rodzin: po porodzie część formalności jest już załatwiona, firmy z długiem – wezwanie do spłaty. */
+function generatedSeed(profileId: string): Partial<Record<DocId, { status: CaseStatus; note?: string }>> {
+  const f = getFamily(profileId);
+  if (!f) return {};
+  const c = f.input.child;
+  const m = f.input.mother;
+  const out: Partial<Record<DocId, { status: CaseStatus; note?: string }>> = {};
+  const n = f.no;
+  if (c.birthDate) {
+    out["USC-REJESTRACJA"] = { status: "przyznany", note: "Akt urodzenia sporządzony, PESEL nadany." };
+    out["NFZ-ZGLOSZENIE"] = n % 3 === 0 ? { status: "zarejestrowany", note: "Zgłoszenie ZCNA przyjęte – oczekuje na potwierdzenie." } : { status: "przyznany", note: "Dziecko zgłoszone do ubezpieczenia zdrowotnego." };
+    out["800PLUS"] = n % 2 === 0 ? { status: "weryfikacja", note: "ZUS weryfikuje wniosek 800+ – wyrównanie od dnia urodzenia." } : { status: "przyznany", note: "Decyzja: 800 zł miesięcznie, wypłata do 10. dnia miesiąca." };
+    if (m.title === "uop") out["URLOP-RODZ"] = n % 4 === 0 ? { status: "weryfikacja", note: "Kadry weryfikują wniosek o urlop rodzicielski." } : { status: "przyznany", note: "Urlop rodzicielski zatwierdzony przez pracodawcę." };
+    else out.ZAM = n % 5 === 0 ? { status: "uzupelnienie", note: "Brak numeru rachunku bankowego we wniosku ZAM – uzupełnij przez PUE/eZUS." } : { status: "weryfikacja", note: "ZUS weryfikuje wniosek ZAM i dane z rejestru USC." };
+  } else if (m.title === "uop" && (m.payer?.insuredCount ?? 0) <= 20 && m.sickLeaves.length) {
+    out["Z-3"] = { status: "zarejestrowany", note: "Pracodawca przekazał Z-3 do ZUS – zasiłek chorobowy wypłaci ZUS." };
+  }
+  if (m.contributionDebt && m.sickLeaves.length) out["ZAS-53"] = { status: "uzupelnienie", note: `Zaległość w składkach ${m.contributionDebt.toFixed(2).replace(".", ",")} zł – spłać całość, aby ZUS wypłacił zasiłek.` };
+  if (c.path !== "biologiczny" && m.title !== "uop") out.ZAM = { status: "weryfikacja", note: "ZUS sprawdza zaświadczenie sądu opiekuńczego." };
   return out;
 }

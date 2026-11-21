@@ -92,8 +92,25 @@ export interface ParentProfile {
   employmentLossReason?: "upadlosc" | "likwidacja" | "smierc_pracodawcy" | "bezprawne_zwolnienie" | null;
 }
 
+/** Dane jednego dziecka – płeć i imię przed porodem, a po urodzeniu dane do dokumentów (USC, ZCNA, 800+, ZAM). */
+export interface KidInfo {
+  /** „nie_wiem” – rodzice jeszcze nie znają płci (albo nie chcą jej podawać) */
+  sex?: "dziewczynka" | "chlopiec" | "nie_wiem";
+  /** Jak aplikacja ma zwracać się do dziecka (wybrane imię, zmienialne w ustawieniach) */
+  name?: string;
+  /** Po urodzeniu: pełne imię (imiona) i nazwisko z aktu urodzenia */
+  fullName?: string;
+  lastName?: string;
+  birthTime?: string;
+  birthPlace?: string;
+  weightG?: number;
+  pesel?: string;
+}
+
 export interface ChildEvent {
   path: FamilyPath;
+  /** Po jednym wpisie na każde dziecko (bliźnięta – dwa wpisy) */
+  kids?: KidInfo[];
   dueDate: string; // przewidywana data porodu / przyjęcia
   birthDate?: string; // faktyczna
   childrenCount: number;

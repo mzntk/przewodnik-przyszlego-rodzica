@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Term } from "@/components/ui/term";
 import { cn } from "@/lib/utils";
+import { kidsOf } from "@/lib/child";
+import type { KidInfo } from "@/models/types";
 
 const TITLE_OPTIONS = (Object.keys(TITLE_LABELS) as InsuranceTitle[]).map((t) => ({ value: t, label: TITLE_LABELS[t] }));
 
@@ -204,8 +206,11 @@ export function ChildEditor() {
         </Field>
       )}
       <Field label="Liczba dzieci (jeden poród / jednoczesne przyjęcie)">
-        <NumberInput value={c.childrenCount} min={1} max={6} onChange={(v) => up((x) => void (x.childrenCount = Math.max(1, Math.min(6, v))))} />
+        <NumberInput value={c.childrenCount} min={1} max={6} onChange={(v) => up((x) => ((x.childrenCount = Math.max(1, Math.min(6, v))), (x.kids = kidsOf(x))))} />
       </Field>
+      <div className="sm:col-span-2">
+        <KidsEditor />
+      </div>
       {c.path === "biologiczny" && (
         <Field label="Planowany poród">
           <Select value={c.delivery ?? "naturalny"} onChange={(v) => up((x) => void (x.delivery = v))} options={[{ value: "naturalny", label: "Siłami natury" }, { value: "cesarskie", label: "Cesarskie cięcie" }]} />
@@ -258,6 +263,91 @@ export function SickLeaveEditor() {
       >
         <Plus className="h-4 w-4" /> Dodaj zwolnienie e-ZLA
       </Button>
+    </div>
+  );
+}
+
+const SEX_OPTIONS = [
+  { value: "dziewczynka" as const, label: "Dziewczynka" },
+  { value: "chlopiec" as const, label: "Chłopiec" },
+  { value: "nie_wiem" as const, label: "Jeszcze nie wiem" },
+];
+
+/** Płeć i imię – osobno dla każdego dziecka. Imię zmienisz w każdej chwili w Ustawieniach. */
+export function KidsEditor() {
+  const { data, setData } = useApp();
+  const kids = kidsOf(data.child);
+  const set = (i: number, patch: Partial<KidInfo>) => setData((d) => ((d.child.kids = kidsOf(d.child)), (d.child.kids[i] = { ...d.child.kids[i], ...patch }), d));
+  const many = kids.length > 1;
+  const bio = data.child.path === "biologiczny";
+  return (
+    <div className="space-y-3">
+      {kids.map((k, i) => (
+        <div key={i} className="space-y-3 rounded-xl border border-line bg-surface-2 p-3">
+          {many && <div className="text-[14px] font-bold text-fg-2">Dziecko {i + 1}</div>}
+          {bio && (
+            <Field label="Czy znasz płeć dziecka?">
+              <Segmented className="flex w-full" value={k.sex ?? "nie_wiem"} onChange={(v) => set(i, { sex: v })} options={SEX_OPTIONS} />
+            </Field>
+          )}
+          <Field label={many ? `Jak mamy zwracać się do dziecka ${i + 1}?` : "Jak mamy zwracać się do Twojego dziecka?"} hint="Wpisz wybrane imię – użyjemy go w aplikacji. Możesz je zmienić w każdej chwili w Ustawieniach.">
+            <Input value={k.name ?? ""} maxLength={30} placeholder={k.sex === "chlopiec" ? "np. Staś" : k.sex === "dziewczynka" ? "np. Zosia" : "np. Zosia albo Staś – albo zostaw puste"} onChange={(e) => set(i, { name: e.target.value || undefined })} />
+          </Field>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Dane po urodzeniu – posłużą do automatycznego wypełniania dokumentów (USC, ZCNA, 800+, ZAM, wnioski urlopowe). */
+export function BirthDetails() {
+  const { data, setData } = useApp();
+  const c = data.child;
+  const kids = kidsOf(c);
+  const fallbackLast = data.father?.lastName || data.mother.lastName;
+  const set = (i: number, patch: Partial<KidInfo>) =>
+    setData((d) => {
+      d.child.kids = kidsOf(d.child);
+      d.child.kids[i] = { ...d.child.kids[i], ...patch };
+      if (patch.weightG !== undefined) d.child.birthWeightsG = d.child.kids.map((k) => k.weightG ?? 0).filter(Boolean);
+      return d;
+    });
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Data urodzenia">
+          <Input type="date" value={c.birthDate ?? ""} onChange={(e) => setData((d) => ((d.child.birthDate = e.target.value || undefined), d))} />
+        </Field>
+        <Field label="Tydzień ciąży w dniu porodu" hint="Poniżej 37. tygodnia może przysługiwać urlop uzupełniający">
+          <NumberInput value={c.gestationWeek ?? 40} min={22} max={43} suffix="tydz." onChange={(v) => setData((d) => ((d.child.gestationWeek = v), d))} />
+        </Field>
+      </div>
+      {kids.map((k, i) => (
+        <div key={i} className="grid gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2">
+          <div className="text-[14px] font-bold text-fg-2 sm:col-span-2">{kids.length > 1 ? `Dziecko ${i + 1}` : "Dziecko"}{k.name ? ` – ${k.name}` : ""}</div>
+          <Field label="Imię (imiona) – jak w akcie urodzenia">
+            <Input value={k.fullName ?? ""} placeholder={k.name ? `np. ${k.name}` : "np. Zofia Maria"} onChange={(e) => set(i, { fullName: e.target.value || undefined })} />
+          </Field>
+          <Field label="Nazwisko">
+            <Input value={k.lastName ?? ""} placeholder={fallbackLast} onChange={(e) => set(i, { lastName: e.target.value || undefined })} />
+          </Field>
+          <Field label="Płeć">
+            <Segmented className="flex w-full" value={k.sex === "chlopiec" ? "chlopiec" : k.sex === "dziewczynka" ? "dziewczynka" : "nie_wiem"} onChange={(v) => set(i, { sex: v })} options={SEX_OPTIONS.slice(0, 2).concat({ value: "nie_wiem", label: "—" })} />
+          </Field>
+          <Field label="Godzina urodzenia">
+            <Input type="time" value={k.birthTime ?? ""} onChange={(e) => set(i, { birthTime: e.target.value || undefined })} />
+          </Field>
+          <Field label="Masa urodzeniowa">
+            <NumberInput value={k.weightG ?? 0} step={10} suffix="g" onChange={(v) => set(i, { weightG: v || undefined })} />
+          </Field>
+          <Field label="Miejsce urodzenia (szpital, miasto)">
+            <Input value={k.birthPlace ?? ""} placeholder="np. Szpital św. Zofii, Warszawa" onChange={(e) => set(i, { birthPlace: e.target.value || undefined })} />
+          </Field>
+          <Field label="PESEL dziecka (po rejestracji w USC)" className="sm:col-span-2" hint="Nadaje go urząd przy rejestracji urodzenia. Wpisz, gdy go dostaniesz – uzupełni ZCNA, 800+ i ZAM.">
+            <Input inputMode="numeric" maxLength={11} value={k.pesel ?? ""} placeholder="11 cyfr" onChange={(e) => set(i, { pesel: e.target.value.replace(/\D/g, "") || undefined })} />
+          </Field>
+        </div>
+      ))}
     </div>
   );
 }

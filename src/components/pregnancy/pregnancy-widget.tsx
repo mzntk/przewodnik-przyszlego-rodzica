@@ -6,6 +6,7 @@ import { pregnancyWeek, weekInfo } from "@/data/pregnancy";
 import { useApp } from "@/store/app";
 import { useToday } from "@/hooks/use-mounted";
 import { dLong, plural } from "@/lib/utils";
+import { childNames } from "@/lib/child";
 
 export function PregnancyWidget({ compact }: { compact?: boolean }) {
   const { data } = useApp();
@@ -36,7 +37,7 @@ export function PregnancyWidget({ compact }: { compact?: boolean }) {
           </div>
         </div>
         <div className="min-w-0">
-          <div className="text-[13px] font-medium text-muted">{born ? "Dziecko jest z Wami" : c.path === "biologiczny" ? `Do porodu · ${trimester}` : "Do przyjęcia dziecka"}</div>
+          <div className="text-[13px] font-medium text-muted">{born ? `${childNames(c) ?? "Dziecko"} ${c.childrenCount > 1 ? "są" : "jest"} z Wami` : c.path === "biologiczny" ? `${childNames(c) ? `${childNames(c)} – do porodu` : "Do porodu"} · ${trimester}` : `Do przyjęcia${childNames(c) ? `: ${childNames(c)}` : " dziecka"}`}</div>
           <div className="num text-[30px] leading-tight font-semibold tracking-tight">
             {Math.abs(days)} {plural(Math.abs(days), "dzień", "dni", "dni")}
             {born && <span className="text-[17px] font-medium text-muted"> razem</span>}
@@ -51,7 +52,7 @@ export function PregnancyWidget({ compact }: { compact?: boolean }) {
           {!compact && <p className="mt-2 flex gap-2 text-[14px] text-muted"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-gold" /> {info.tip}</p>}
         </div>
       )}
-      <Link href="/ciaza" className="relative mt-4 inline-flex items-center gap-1 text-[14px] font-medium text-blue hover:underline">
+      <Link href="/ciaza" className="relative mt-4 inline-flex items-center gap-1 text-[14px] font-bold text-brand hover:underline">
         Otwórz kalendarz ciąży <ArrowRight className="h-3.5 w-3.5" />
       </Link>
     </div>

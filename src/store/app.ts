@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CaseInput } from "@/models/types";
 import { TEST_PROFILES, emptyCase } from "@/data/profiles";
+import { familyByNo, getFamily, randomFamilyNo } from "@/data/families";
 import type { CaseState } from "@/models/case-status";
 
 export type CaseData = Omit<CaseInput, "asOf">;
@@ -121,12 +122,20 @@ interface AppState {
   zusMessages: ZusMessage[];
   invite: PartnerInvite | null;
   aiConsent: boolean;
+  /** Tryb testowy: rodzina „przypięta” do tego urządzenia (jak jedna tożsamość w mObywatelu). */
+  familyNo: number | null;
   healthLogs: HealthLog[];
   dayLogs: Record<string, DayLog>;
   appointments: Appointment[];
   epds: { date: string; score: number; level: string; flagged: boolean }[];
   contacts: { partner: string; doctor: string };
   login: (account: Account, method: "mobywatel" | "manual", profileId: string | null, opts?: { joinFamily?: boolean }) => void;
+  /** Zaloguj się (mObywatel) – zawsze ta sama rodzina na tym urządzeniu. Zwraca nazwę zalogowanej osoby. */
+  loginFamily: (account: "mama" | "tata") => string;
+  /** Zarejestruj się (mama) – dane osobowe i ubezpieczeniowe z mObywatela i ZUS, dane dziecka wpisywane w kreatorze. */
+  registerMama: () => string;
+  /** Tryb testowy – wyczyść dane z urządzenia i wylosuj inną rodzinę. */
+  drawNewFamily: () => void;
   logout: () => void;
   completeOnboarding: () => void;
   setData: (fn: (d: CaseData) => CaseData) => void;
@@ -181,6 +190,7 @@ export const useApp = create<AppState>()(
       zusMessages: [],
       invite: null,
       aiConsent: true,
+      familyNo: null,
       healthLogs: [],
       dayLogs: {},
       appointments: [],
@@ -193,7 +203,7 @@ export const useApp = create<AppState>()(
           if (opts?.joinFamily) return { loggedIn: true, account, role: "user", loginMethod: method };
           // Konto partnera powiązane z tą samą rodziną – zachowaj dane wprowadzone przez Mamę na tym urządzeniu.
           const sameFamily = s.profileId === profileId && profileKey(profileId) !== "manual" && s.onboarded.includes(profileKey(profileId));
-          const p = TEST_PROFILES.find((x) => x.id === profileId);
+          const p = getFamily(profileId) ?? TEST_PROFILES.find((x) => x.id === profileId);
           return {
             loggedIn: true,
             account,
@@ -209,6 +219,76 @@ export const useApp = create<AppState>()(
             invite: sameFamily ? s.invite : null,
           };
         }),
+      loginFamily: (account) => {
+        const s = useApp.getState();
+        const no = s.familyNo ?? randomFamilyNo();
+        const fam = familyByNo(no);
+        const known = s.profileId === fam.id && s.onboarded.includes(fam.id);
+        set({
+          familyNo: no,
+          loggedIn: true,
+          account,
+          role: "user",
+          loginMethod: "mobywatel",
+          profileId: fam.id,
+          onboarded: [...new Set([...s.onboarded, fam.id])],
+          // ponowne logowanie: dane i wpisy z urządzenia zostają; pierwsze – pełny profil rodziny z ZUS
+          ...(known
+            ? { data: s.data.father || account === "mama" ? s.data : { ...s.data, father: structuredClone(fam.input.father) } }
+            : { data: structuredClone(fam.input), zusFetched: false, cases: {}, notifications: [], zusMessages: [], appointments: [], dayLogs: {}, invite: null, checklists: {} }),
+        });
+        const p = account === "tata" ? fam.input.father : fam.input.mother;
+        return `${p?.firstName ?? ""} ${p?.lastName ?? ""}`.trim();
+      },
+      registerMama: () => {
+        const s = useApp.getState();
+        const no = s.familyNo ?? randomFamilyNo();
+        const fam = familyByNo(no);
+        const base = emptyCase();
+        const due = new Date(Date.now() + 150 * 86_400_000).toISOString().slice(0, 10);
+        set({
+          familyNo: no,
+          loggedIn: true,
+          account: "mama",
+          role: "user",
+          loginMethod: "mobywatel",
+          profileId: fam.id,
+          // z mObywatela i ZUS: dane osobowe, ubezpieczenie, płatnik, zarobki, e-ZLA; dziecko i partner – uzupełnia rodzic
+          data: { ...base, mother: structuredClone(fam.input.mother), child: { path: "biologiczny", dueDate: due, childrenCount: 1, zaZyciem: false, kids: [{ sex: "nie_wiem" }] }, plan: { ...base.plan, fatherParentalWeeks: 0 } },
+          onboarded: s.onboarded.filter((x) => x !== fam.id),
+          zusFetched: false,
+          cases: {},
+          notifications: [],
+          zusMessages: [],
+          appointments: [],
+          dayLogs: {},
+          invite: null,
+          checklists: {},
+        });
+        return `${fam.input.mother.firstName} ${fam.input.mother.lastName}`;
+      },
+      drawNewFamily: () =>
+        set((s) => ({
+          familyNo: randomFamilyNo(s.familyNo ?? undefined),
+          loggedIn: false,
+          account: null,
+          loginMethod: null,
+          role: "user",
+          profileId: null,
+          onboarded: [],
+          data: structuredClone(TEST_PROFILES[0].input),
+          zusFetched: false,
+          cases: {},
+          casesSyncedAt: null,
+          notifications: [],
+          zusMessages: [],
+          appointments: [],
+          dayLogs: {},
+          healthLogs: [],
+          epds: [],
+          invite: null,
+          checklists: {},
+        })),
       logout: () => set({ loggedIn: false, account: null, loginMethod: null, role: "user" }),
       completeOnboarding: () => set((s) => ({ onboarded: [...new Set([...s.onboarded, profileKey(s.profileId)])] })),
       setData: (fn) => set((s) => ({ data: fn(structuredClone(s.data)) })),
@@ -243,10 +323,11 @@ export const useApp = create<AppState>()(
     }),
     {
       name: "zasilkowy-przewodnik-v3",
-      version: 4,
+      version: 5,
       partialize: ({ activeCase: _a, ...rest }) => rest,
       // v3 → v4: nowe pola (preferencje powiadomień, wiadomości, zaproszenie) – uzupełniamy domyślnymi
-      migrate: (persisted) => ({ ...(persisted as object), notifyPrefs: defaultPrefs(), email: "", zusMessages: [], invite: null, aiConsent: true }) as unknown as AppState,
+      migrate: (persisted, version) =>
+        ({ ...(persisted as object), ...(version < 4 ? { notifyPrefs: defaultPrefs(), email: "", zusMessages: [], invite: null, aiConsent: true } : {}), familyNo: null }) as unknown as AppState,
     },
   ),
 );

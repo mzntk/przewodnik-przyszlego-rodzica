@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { NOTIFY_TOPICS, useApp, type NotifyChannel, type NotifyTopic, type PartnerAccess } from "@/store/app";
 import { ZusInbox } from "@/components/messages/zus-inbox";
+import { TestModeBox } from "@/components/onboarding/test-mode";
 import { Field, Input } from "@/components/ui/form";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/form";
 import { MotionTabs } from "@/components/ui/tabs";
-import { ChildEditor, ParentEditor } from "@/components/forms/case-editors";
+import { BirthDetails, ChildEditor, ParentEditor } from "@/components/forms/case-editors";
 import { ZusFetch } from "@/components/onboarding/zus-fetch";
 import { AddPartnerSheet, InviteBox } from "@/components/partner/add-partner";
 import { cn } from "@/lib/utils";
@@ -66,11 +67,19 @@ function MamaSettings() {
           {tab === "profil" && (
             <div className="grid gap-4 xl:grid-cols-2">
               <Card>
-                <CardHeader title="Dziecko" subtitle="Termin porodu lub przyjęcia" icon={<Baby className="h-4 w-4" />} />
+                <CardHeader title="Dziecko" subtitle="Termin porodu, płeć i imię – zmienisz je w każdej chwili" icon={<Baby className="h-4 w-4" />} />
                 <CardBody>
                   <ChildEditor />
                 </CardBody>
               </Card>
+              {data.child.birthDate && (
+                <Card className="xl:col-span-2">
+                  <CardHeader title="Dane z aktu urodzenia" subtitle="Wypełniamy nimi dokumenty: USC, ZCNA, 800+, ZAM i wnioski urlopowe" icon={<Baby className="h-4 w-4" />} />
+                  <CardBody>
+                    <BirthDetails />
+                  </CardBody>
+                </Card>
+              )}
               <Card>
                 <CardHeader title="Moja sytuacja ubezpieczeniowa" icon={<UserRound className="h-4 w-4" />} />
                 <CardBody>
@@ -240,7 +249,7 @@ function NotificationSettings() {
 /** Konto: dane logowania, kontakt, prywatność (RODO), eksport i usunięcie danych. */
 function AccountTab() {
   const router = useRouter();
-  const { data, account, loginMethod, logout, aiConsent, setAiConsent, email, invite } = useApp();
+  const { data, account, loginMethod, logout, aiConsent, setAiConsent, email, invite, familyNo } = useApp();
   const dad = account === "tata";
   const person = dad ? data.father : data.mother;
   const pesel = person?.pesel ? `${person.pesel.slice(0, 2)}*******${person.pesel.slice(-2)}` : "—";
@@ -273,6 +282,7 @@ function AccountTab() {
               ["Imię i nazwisko", `${person?.firstName ?? ""} ${person?.lastName ?? ""}`.trim() || "—"],
               ["Rola", dad ? "Tata / Partner" : "Mama"],
               ["Logowanie", loginMethod === "mobywatel" ? "mObywatel (kod QR) – tożsamość potwierdzona" : "Konto ręczne (bez mObywatela)"],
+              ...(familyNo ? [["Rodzina testowa", `nr ${familyNo}`]] : []),
               ["PESEL", pesel],
               ["E-mail do powiadomień", email || "nie podano – ustaw w zakładce Powiadomienia"],
               ...(!dad ? [["Partner", invite?.completedAt ? `${data.father?.firstName ?? "Partner"} – dołączył ${new Date(invite.completedAt).toLocaleDateString("pl-PL")}` : invite ? "zaproszenie wysłane – czeka na dołączenie" : data.father ? "dodany ręcznie" : "nie dodano"]] : []),
@@ -283,6 +293,7 @@ function AccountTab() {
               </div>
             ))}
           </dl>
+          <TestModeBox className="mt-4" />
           <div className="mt-4 flex flex-wrap gap-2">
             {!dad && (
               <Button variant="secondary" onClick={() => router.push("/start")}>

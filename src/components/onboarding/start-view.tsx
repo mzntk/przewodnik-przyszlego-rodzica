@@ -16,11 +16,12 @@ import { useApp } from "@/store/app";
 import { useMounted } from "@/hooks/use-mounted";
 import { useCalculation } from "@/hooks/use-calculation";
 import { emptyCase } from "@/data/profiles";
+import { familyByNo } from "@/data/families";
 import { cn, zl0 } from "@/lib/utils";
 import { LOSS_HINT, LOSS_INFO } from "@/components/forms/case-editors";
 
 const STEPS = [
-  { id: "dziecko", title: "Kiedy pojawi się dziecko?", sub: "Termin porodu lub przyjęcia dziecka zasila kalendarz, terminy i kalkulator.", icon: Baby },
+  { id: "dziecko", title: "Twoje dziecko", sub: "Narodziny, adopcja czy rodzina zastępcza, termin, liczba dzieci – i jak mamy zwracać się do maluszka. Dane osobowe i ubezpieczenie pobraliśmy już z mObywatela i ZUS.", icon: Baby },
   { id: "ubezpieczenie", title: "Twoja sytuacja ubezpieczeniowa", sub: "Uzupełniliśmy dane z ZUS – sprawdź je i popraw, jeśli coś się zmieniło.", icon: UserRound },
   { id: "partner", title: "Drugi rodzic", sub: "Krok opcjonalny – partner dołączy z linku i sam uzupełni swoje dane (np. wielkość firmy, zarobki).", icon: Users },
   { id: "szczegolne", title: "Okoliczności szczególne", sub: "Zaznacz tylko to, co Cię dotyczy – resztę możesz zmienić później w profilu.", icon: Sparkles },
@@ -132,13 +133,16 @@ function Preview() {
 /** Partner z zaproszenia: loguje się własnym mObywatelem i SAM uzupełnia swoje dane (mama nie musi ich znać). */
 function PartnerStart() {
   const router = useRouter();
-  const { data, setData, invite, setInvite } = useApp();
+  const { data, setData, invite, setInvite, familyNo } = useApp();
   const [synced, setSynced] = useState(false);
   useEffect(() => {
-    if (!data.father) setData((d) => ((d.father = { ...emptyCase().mother, role: "ojciec", firstName: invite?.partnerName || "Partner", lastName: d.mother.lastName, payer: { name: "", nip: "", insuredCount: 0 } }), d));
+    // dane taty „z mObywatela i ZUS” – z tej samej rodziny testowej; bez niej pusty formularz
+    const fromZus = familyNo ? familyByNo(familyNo).input.father : undefined;
+    const placeholder = !data.father || data.father.firstName === "Partner" || !data.father.pesel;
+    if (placeholder) setData((d) => ((d.father = fromZus ? structuredClone(fromZus) : { ...emptyCase().mother, role: "ojciec", firstName: invite?.partnerName || "Partner", lastName: d.mother.lastName, payer: { name: "", nip: "", insuredCount: 0 } }), d));
     const t = setTimeout(() => setSynced(true), 2200);
     return () => clearTimeout(t);
-  }, [data.father, invite?.partnerName, setData]);
+  }, [data.father, invite?.partnerName, setData, familyNo]);
   const finish = () => {
     if (invite) setInvite({ ...invite, completedAt: new Date().toISOString() });
     setData((d) => {

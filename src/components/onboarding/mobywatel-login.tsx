@@ -1,14 +1,12 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Fingerprint, HeartHandshake, Loader2, PenLine, ScanLine, Smartphone } from "lucide-react";
+import { Check, CheckCircle2, Fingerprint, Loader2, ScanLine, Smartphone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Sheet } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TEST_PROFILES } from "@/data/profiles";
-import { useApp, profileKey, type Account } from "@/store/app";
+import { useApp, type Account } from "@/store/app";
 import { cn } from "@/lib/utils";
 
 /** Kod QR do symulacji (wzór graficzny z wzorcami pozycjonującymi – nie koduje danych). */
@@ -45,11 +43,15 @@ function FakeQr({ seed, className }: { seed: number; className?: string }) {
   );
 }
 
-export function MObywatelLogin({ open, onOpenChange, account, inviteCode }: { open: boolean; onOpenChange: (v: boolean) => void; account: Exclude<Account, "admin">; inviteCode?: string | null }) {
-  const [step, setStep] = useState<"qr" | "scanned" | "profile">("qr");
+export type LoginMode = "login" | "register";
+
+const FETCHED = ["Imię, nazwisko i PESEL (mObywatel)", "Tytuł ubezpieczenia i ubezpieczenie chorobowe (ZUS)", "Płatnik składek i liczba ubezpieczonych", "Podstawa składek z 12 miesięcy", "Zwolnienia lekarskie e-ZLA i stan rozliczeń"];
+
+export function MObywatelLogin({ open, onOpenChange, account, mode, inviteCode }: { open: boolean; onOpenChange: (v: boolean) => void; account: Exclude<Account, "admin">; mode: LoginMode; inviteCode?: string | null }) {
+  const [step, setStep] = useState<"qr" | "scanned" | "done">("qr");
   const [seed, setSeed] = useState(1);
-  const { login, invite, setInvite, profileId: familyProfile } = useApp();
-  const motherName = useApp((s) => `${s.data.mother.firstName} ${s.data.mother.lastName}`.trim());
+  const [who, setWho] = useState("");
+  const { login, invite, setInvite, profileId: familyProfile, loginFamily, registerMama } = useApp();
   const router = useRouter();
 
   useEffect(() => {
@@ -62,36 +64,38 @@ export function MObywatelLogin({ open, onOpenChange, account, inviteCode }: { op
     return () => clearTimeout(t);
   }, [open]);
 
+  const pendingInvite = account === "tata" && invite && !invite.completedAt && (!inviteCode || inviteCode === invite.code) ? invite : null;
+  const joining = account === "tata" && !!inviteCode && !!pendingInvite;
+
+  // po zeskanowaniu: potwierdzenie tożsamości i wejście do aplikacji
   useEffect(() => {
     if (step !== "scanned") return;
-    const t = setTimeout(() => setStep("profile"), 1200);
+    const t = setTimeout(() => {
+      if (joining && pendingInvite) {
+        login("tata", "mobywatel", familyProfile, { joinFamily: true });
+        setInvite({ ...pendingInvite, joinedAt: pendingInvite.joinedAt ?? new Date().toISOString() });
+        setWho("partner z zaproszenia");
+      } else if (mode === "register" && account === "mama") setWho(registerMama());
+      else setWho(loginFamily(account));
+      setStep("done");
+    }, 1200);
     return () => clearTimeout(t);
-  }, [step]);
+  }, [step, joining, pendingInvite, mode, account, login, familyProfile, setInvite, registerMama, loginFamily]);
 
-  const profiles = account === "tata" ? TEST_PROFILES.filter((p) => p.input.father) : TEST_PROFILES;
-  const pendingInvite = account === "tata" && invite && !invite.completedAt && (!inviteCode || inviteCode === invite.code) ? invite : null;
-
-  function choose(id: string | null) {
-    login(account, id ? "mobywatel" : "manual", id);
-    onOpenChange(false);
-    const onboarded = useApp.getState().onboarded.includes(profileKey(id));
-    toast.success(account === "tata" ? "Zalogowano na konto partnera" : "Zalogowano przez mObywatel (symulacja)");
-    router.replace(account === "mama" && !onboarded ? "/start" : "/panel");
-  }
-
-  function joinFamily() {
-    if (!pendingInvite) return;
-    login("tata", "mobywatel", familyProfile, { joinFamily: true });
-    setInvite({ ...pendingInvite, joinedAt: pendingInvite.joinedAt ?? new Date().toISOString() });
-    onOpenChange(false);
-    toast.success("Dołączono do konta rodziny");
-    router.replace("/start");
-  }
+  useEffect(() => {
+    if (step !== "done") return;
+    const t = setTimeout(() => {
+      onOpenChange(false);
+      toast.success(joining ? "Dołączono do konta rodziny" : mode === "register" ? "Konto założone – uzupełnij dane dziecka" : `Zalogowano: ${who}`);
+      router.replace(joining || mode === "register" ? "/start" : "/panel");
+    }, mode === "register" || joining ? 2200 : 1100);
+    return () => clearTimeout(t);
+  }, [step, joining, mode, who, onOpenChange, router]);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="Logowanie przez mObywatel" description="Symulacja – w środowisku produkcyjnym: login.gov.pl / Węzeł Krajowy.">
+    <Sheet open={open} onOpenChange={onOpenChange} title={mode === "register" ? "Rejestracja przez mObywatel" : "Logowanie przez mObywatel"} description="Symulacja – w środowisku produkcyjnym: login.gov.pl / Węzeł Krajowy.">
       <AnimatePresence mode="wait">
-        {step !== "profile" ? (
+        {step !== "done" ? (
           <motion.div key="qr" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col items-center py-4 text-center">
             <div className="relative rounded-2xl border border-line bg-white p-3 shadow-card">
               <FakeQr seed={seed} className={cn("size-52 transition sm:size-60", step === "scanned" && "opacity-20 blur-[1px]")} />
@@ -105,7 +109,7 @@ export function MObywatelLogin({ open, onOpenChange, account, inviteCode }: { op
             <ol className="mt-5 space-y-1.5 text-left text-[15px] text-fg-2">
               <li className="flex gap-2"><Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-[#d4213d]" /> Otwórz aplikację <b>mObywatel</b> w telefonie.</li>
               <li className="flex gap-2"><ScanLine className="mt-0.5 h-4 w-4 shrink-0 text-[#d4213d]" /> Wybierz <b>Kod QR → Zaloguj się</b> i zeskanuj kod.</li>
-              <li className="flex gap-2"><Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-[#d4213d]" /> Potwierdź logowanie w telefonie.</li>
+              <li className="flex gap-2"><Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-[#d4213d]" /> Potwierdź {mode === "register" ? "rejestrację" : "logowanie"} w telefonie.</li>
             </ol>
             <div className="mt-5 flex items-center gap-2 text-[15px] text-muted">
               {step === "scanned" ? (
@@ -124,45 +128,31 @@ export function MObywatelLogin({ open, onOpenChange, account, inviteCode }: { op
             <p className="mt-3 text-[12px] text-muted">Kod jest jednorazowy i ważny 2 minuty. Logujesz się na komputerze? Zeskanuj go telefonem. Na telefonie – aplikacja mObywatel otworzy się sama.</p>
           </motion.div>
         ) : (
-          <motion.div key="profile" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-            <div className="flex items-center gap-2 rounded-xl bg-brand-soft px-3 py-2.5 text-[15px] font-medium text-brand">
-              <Fingerprint className="h-4 w-4 shrink-0" /> Tożsamość potwierdzona. {account === "tata" ? "Wybierz rodzinę, z którą powiązane jest Twoje konto:" : "Wybierz profil testowy (dane fikcyjne):"}
+          <motion.div key="done" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 py-4">
+            <div className="flex items-center gap-3 rounded-xl bg-brand-soft px-4 py-3">
+              <Fingerprint className="h-6 w-6 shrink-0 text-brand" />
+              <div>
+                <div className="text-[16px] font-bold text-brand">Tożsamość potwierdzona</div>
+                <div className="text-[15px] text-fg-2">{joining ? "Dołączasz do konta rodziny" : who}</div>
+              </div>
             </div>
-            {pendingInvite && (
-              <button onClick={joinFamily} className="flex w-full items-start gap-3 rounded-xl border-2 border-brand bg-brand-soft p-3.5 text-left">
-                <HeartHandshake className="mt-0.5 h-6 w-6 shrink-0 text-brand" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[16px] font-bold">Dołącz do rodziny – zaproszenie od {motherName || "partnerki"}</span>
-                  <span className="mt-0.5 block text-[14px] text-fg-2">Kod {pendingInvite.code}. Po zalogowaniu sam uzupełnisz swoje dane: rodzaj umowy, wielkość firmy, zarobki.</span>
-                </span>
-              </button>
+            {(mode === "register" || joining) && (
+              <div>
+                <div className="mb-2 text-[14px] font-bold text-fg-2">Pobieramy dane z mObywatela i ZUS:</div>
+                <ul className="space-y-1.5">
+                  {FETCHED.map((x, i) => (
+                    <motion.li key={x} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.25 }} className="flex items-center gap-2 text-[15px] text-fg-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-brand" /> {x}
+                    </motion.li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-[14px] text-muted">Dane dziecka (termin porodu, płeć, imię) uzupełnisz w następnym kroku.</p>
+              </div>
             )}
-            {profiles.map((p, i) => {
-              const f = p.input.father;
-              return (
-                <motion.button key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} onClick={() => choose(p.id)} className={cn("group flex w-full items-start gap-3 rounded-xl border border-line bg-surface p-3.5 text-left transition hover:border-brand hover:bg-surface-2")}>
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface-3 text-[15px] font-semibold">{account === "tata" && f ? `${f.firstName[0]}${f.lastName[0]}` : p.avatar}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">{account === "tata" && f ? `${f.firstName} ${f.lastName}` : p.title}</span>
-                    <span className="mt-0.5 block text-[14px] leading-snug text-muted">{account === "tata" ? `Partner: ${p.input.mother.firstName} ${p.input.mother.lastName}` : p.subtitle}</span>
-                    {account === "mama" && (
-                      <span className="mt-2 flex flex-wrap gap-1">
-                        {p.tags.map((t) => (
-                          <Badge key={t.label} tone={t.tone}>
-                            {t.label}
-                          </Badge>
-                        ))}
-                      </span>
-                    )}
-                  </span>
-                  <Check className="mt-1 h-4 w-4 text-brand opacity-0 transition group-hover:opacity-100" />
-                </motion.button>
-              );
-            })}
-            {account === "mama" && (
-              <Button variant="outline" className="w-full" onClick={() => choose(null)}>
-                <PenLine className="h-4 w-4" /> Nowe konto – wprowadzę dane ręcznie
-              </Button>
+            {mode === "login" && !joining && (
+              <p className="flex items-center gap-2 text-[15px] text-muted">
+                <Loader2 className="h-4 w-4 animate-spin" /> Otwieramy Twój pulpit…
+              </p>
             )}
           </motion.div>
         )}

@@ -3,6 +3,7 @@
  * (b) druki ZUS (stan po 24.10.2026: ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15A, Z-15B, Z-12), (c) USC.
  * Pola są autouzupełniane z profilu i wyniku deterministycznego silnika.
  */
+import { childLine } from "@/lib/child";
 import type { CalculationResult } from "@/models/types";
 import type { CaseData } from "@/store/app";
 import { dPL } from "@/lib/utils";
@@ -69,7 +70,7 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
         { key: "name", label: "Imię i nazwisko pracownika", value: name },
         { key: "used", label: "Dotychczas wykorzystany urlop rodzicielski / zasiłek za ten okres i liczba części", value: "0 tygodni, 0 części" },
         { key: "period", label: "Okres, na który ma być udzielony urlop rodzicielski", value: parM.length ? `od ${dPL(parM[0].from)} do ${dPL(parM.at(-1)!.to)}` : "" },
-        { key: "child", label: "Imię i nazwisko oraz data urodzenia dziecka", value: `${m.lastName ? `dziecko ${m.lastName}` : ""}, ${dPL(event)}` },
+        { key: "child", label: "Imię i nazwisko oraz data urodzenia dziecka", value: d.child.birthDate ? childLine(d.child, m.lastName) : "" },
       ],
       attachments: [...birthDoc, "Oświadczenie o braku zamiaru korzystania z urlopu rodzicielskiego przez drugiego rodzica w tym samym okresie (lub o łącznym wymiarze)"],
       relevant: employee && parM.length > 0,
@@ -116,7 +117,7 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       when: "Min. 7 dni przed rozpoczęciem; do ukończenia przez dziecko 12 miesięcy",
       fields: [
         { key: "name", label: "Imię i nazwisko pracownika – ojca wychowującego dziecko", value: fname },
-        { key: "child", label: "Data urodzenia dziecka", value: dPL(event) },
+        { key: "child", label: "Dziecko (imię, nazwisko, data urodzenia)", value: d.child.birthDate ? childLine(d.child, f?.lastName ?? m.lastName) : dPL(event) },
         { key: "period", label: "Okres urlopu ojcowskiego", value: pat.map((p) => `${dPL(p.from)}–${dPL(p.to)}`).join(", ") },
       ],
       attachments: [...(f?.payer && f.payer.insuredCount > 20 ? ["Odpis skrócony aktu urodzenia dziecka"] : [])],
@@ -150,6 +151,7 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
         { key: "payer", label: "Płatnik składek (NIP, nazwa)", value: m.payer?.name ? `${m.payer.name}, NIP ${m.payer.nip}` : "osoba prowadząca działalność – płatnik za siebie" },
         { key: "type", label: "Rodzaj świadczenia i okres", value: `macierzyński ${dPL(mat?.from)}–${dPL(mat?.to)}${parM.length ? `; rodzicielski ${dPL(parM[0].from)}–${dPL(parM.at(-1)!.to)}` : ""}` },
         { key: "event", label: bio ? "Data porodu / przewidywana data porodu" : "Data przyjęcia dziecka", value: dPL(event) },
+        { key: "child", label: bio ? "Dziecko (imię, nazwisko, PESEL)" : "Dziecko przyjęte na wychowanie", value: d.child.birthDate || !bio ? childLine(d.child, m.lastName) : "" },
         { key: "variant", label: "Wniosek o 81,5% za cały okres (art. 30a)", value: d.plan.variant === "combined" ? "TAK" : "NIE" },
         { key: "zz", label: "Zaświadczenie „Za życiem”", value: d.child.zaZyciem ? "TAK" : "NIE" },
         { key: "bank", label: "Numer rachunku bankowego", value: "" },
@@ -184,7 +186,7 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       fields: [
         { key: "name", label: "Imię i nazwisko", value: name },
         { key: "pesel", label: "PESEL", value: m.pesel },
-        { key: "child", label: "Dane dziecka (imię, nazwisko, PESEL, data urodzenia)", value: "" },
+        { key: "child", label: "Dane dziecka (imię, nazwisko, PESEL, data urodzenia)", value: d.child.birthDate ? childLine(d.child, m.lastName) : "" },
         { key: "period", label: "Okres opieki i seria/nr zaświadczenia lekarskiego", value: "" },
       ],
       statements: ["Nie ma innego domownika mogącego zapewnić opiekę w tym okresie", "W tym roku drugi rodzic pobrał zasiłek opiekuńczy za ___ dni"],
@@ -217,7 +219,7 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       fields: [
         { key: "name", label: "Wnioskodawca", value: name },
         { key: "kind", label: "Rodzaj odpisu", value: "skrócony (do pracodawcy) / zupełny" },
-        { key: "child", label: "Dane dziecka i data urodzenia", value: dPL(event) },
+        { key: "child", label: "Dane dziecka i data urodzenia", value: d.child.birthDate ? childLine(d.child, m.lastName) : `przewidywana data porodu ${dPL(event)}` },
         { key: "purpose", label: "Cel", value: payerZus ? "do celów prywatnych (ZUS nie wymaga – § 13 ust. 2)" : "do zakładu pracy – zasiłek macierzyński" },
       ],
       attachments: ["Pierwszy odpis skrócony po rejestracji urodzenia USC wydaje z urzędu; kolejne odpisy – opłata skarbowa wg ustawy o opłacie skarbowej"],

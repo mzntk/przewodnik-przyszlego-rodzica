@@ -9,6 +9,8 @@ import { useApp } from "@/store/app";
 import { buildPriorities, type Priority } from "@/lib/priorities";
 import { resolveHref } from "@/components/layout/nav";
 import { PregnancyWidget } from "@/components/pregnancy/pregnancy-widget";
+import { BirthPrompt } from "@/components/pregnancy/birth-sheet";
+import { childNames } from "@/lib/child";
 import { CaseRow, useCases } from "@/components/cases/case-ui";
 import { AddPartnerSheet } from "@/components/partner/add-partner";
 import { Skeleton } from "@/components/ui/misc";
@@ -113,7 +115,7 @@ function MamaHome() {
     <div className="space-y-10">
       <header>
         <h1 className="text-[32px] leading-tight font-black tracking-tight sm:text-[36px]">Dzień dobry{data.mother.firstName ? `, ${data.mother.firstName}` : ""}</h1>
-        <p className="mt-2 text-[17px] text-fg-2">Tu widzisz tylko to, co ważne dziś. Szczegóły otworzysz jednym kliknięciem.</p>
+        <p className="mt-2 text-[17px] text-fg-2">{childNames(data.child) ? `Ty i ${childNames(data.child)} – tu widzisz tylko to, co ważne dziś.` : "Tu widzisz tylko to, co ważne dziś. Szczegóły otworzysz jednym kliknięciem."}</p>
       </header>
       <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-10">
@@ -121,6 +123,7 @@ function MamaHome() {
           <CaseStatuses title="Moje sprawy w ZUS" />
         </div>
         <div className="space-y-4">
+          <BirthPrompt />
           <PregnancyWidget />
           {invite && !invite.completedAt && (
             <button onClick={() => setAddPartner(true)} className="flex w-full items-center gap-4 rounded-2xl border border-gold/40 bg-gold-soft px-5 py-4 text-left">
@@ -169,6 +172,7 @@ function DadHome() {
           )}
         </div>
         <div className="space-y-4">
+          <BirthPrompt />
           {access.pregnancy && <PregnancyWidget compact />}
           <Link href="/wsparcie" className="flex items-center gap-3 rounded-2xl border border-line px-5 py-4 transition-colors hover:bg-surface">
             <LifeBuoy className="h-5 w-5 text-red" />

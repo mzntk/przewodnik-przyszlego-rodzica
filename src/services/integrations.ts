@@ -5,12 +5,12 @@
  */
 import type { LegalConfig } from "@/models/legal-config";
 import { TITLE_LABELS } from "@/models/types";
-import { TEST_PROFILES } from "@/data/profiles";
+import { getFamily } from "@/data/families";
 import { round2, addDays } from "@/services/engine/dates";
 import { sicknessInsuranceStatus } from "@/services/engine/eligibility";
 
 export function simulateZusFetch(profileId: string, cfg: LegalConfig) {
-  const p = TEST_PROFILES.find((x) => x.id === profileId);
+  const p = getFamily(profileId);
   if (!p) return null;
   const m = p.input.mother;
   const status = sicknessInsuranceStatus(m);

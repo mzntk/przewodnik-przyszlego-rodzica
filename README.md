@@ -157,7 +157,23 @@ AI (model Claude, `claude-opus-5-5`) jest używane **wyłącznie** w dwóch miej
 **AI nigdy nie liczy kwot ani nie rozstrzyga o uprawnieniach** – robi to `services/engine` (pokryty testami).
 Pozostałe funkcje (kalkulator, walidator, routing płatnika, terminy, Centrum alertów, panel admina) są w 100% deterministyczne.
 
-## Profile testowe (3-minutowe demo)
+## Logowanie testowe i 100 rodzin
+
+Ekran startowy: przełączniki **Zaloguj się / Zarejestruj się** oraz **Mama / Tata**, potem kod QR w mObywatelu (symulacja).
+
+- **Zaloguj się** – konto już istnieje: pełne dane rodziny z ZUS (mama i tata z tej samej rodziny).
+- **Zarejestruj się (mama)** – dane osobowe i ubezpieczeniowe „z mObywatela i ZUS” (PESEL, płatnik, składki, e-ZLA),
+  a dane dziecka wpisuje rodzic: narodziny / adopcja / rodzina zastępcza, termin, liczba dzieci, **płeć i imię każdego dziecka**
+  (imię zmienialne w Ustawieniach, używane w tekstach aplikacji).
+- **Tata rejestruje się wyłącznie z linku zaproszenia** od mamy – jego dane też pochodzą „z mObywatela i ZUS”.
+- **Po porodzie**: karta „… już na świecie?” → data urodzenia, a potem dane z aktu (imiona, nazwisko, płeć, godzina, masa,
+  miejsce, PESEL) – wypełniają wnioski (USC, ZAM, Z-15A, wnioski urlopowe).
+- **Pula 100 fikcyjnych rodzin** (`src/data/families.ts`, generator deterministyczny, poprawne PESEL/NIP): ok. 90% narodzin
+  (część po porodzie, wcześniaki, bliźnięta), ok. 10% adopcji i rodzin zastępczych; różne umowy, wielkości firm, zaległości, L4.
+- **Tryb testowy**: urządzenie jest „przypięte” do jednej rodziny (jak jedna tożsamość w mObywatelu). Przycisk
+  „Wyloguj się i wylosuj inną rodzinę” (ekran logowania, menu, Ustawienia → Konto) z opisem scenariuszy pod ikonką ⓘ.
+
+Rodziny 1–5 to przygotowane scenariusze szczególne:
 
 1. **Anna** – UoP w małej firmie (12 os. → ZUS), L4 z kodem B (reset 270 dni), łączenie rodzicielskiego z pracą na 1/2 etatu.
 2. **Magdalena** – JDG od 6 mies. (art. 48a), zaległość 312,45 zł > 48,06 zł → blokada art. 2a.

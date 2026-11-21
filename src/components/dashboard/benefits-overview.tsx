@@ -6,7 +6,7 @@ import { useCalculation } from "@/hooks/use-calculation";
 import { useToday } from "@/hooks/use-mounted";
 import { useApp } from "@/store/app";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, LegalText } from "@/components/ui/badge";
 import { PageHeader, Ring, Skeleton, Stat } from "@/components/ui/misc";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { AlertsList, RisksList } from "./alerts";
@@ -110,7 +110,7 @@ export function BenefitsOverview() {
           <CardBody>
             <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
               <Stat label="Ubezpieczenie chorobowe" value={elig.insured ? "TAK" : "NIE"} tone={elig.insured ? "green" : "red"} sub={elig.insured ? (elig.legal[0]?.article ?? "") + " u.s.u.s." : "→ świadczenie rodzicielskie"} />
-              <Stat label="Kto wypłaca" value={elig.payer.payer === "zus" ? "ZUS" : "Pracodawca"} tone="blue" sub={`art. 61 · ${data.mother.payer?.insuredCount ?? 0} ubezp.`} />
+              <Stat label="Kto wypłaca" value={elig.payer.payer === "zus" ? "ZUS" : "Pracodawca"} tone="blue" sub={<><LegalText>art. 61 ustawy zasiłkowej</LegalText> · {data.mother.payer?.insuredCount ?? 0} ubezp.</>} />
               <Stat label={elig.insured ? "Pierwszy miesiąc" : "Świadczenie rodzicielskie"} value={<AnimatedNumber value={elig.insured ? firstMonthly : (kos?.monthly ?? 0)} format={zl0} />} tone="gold" sub={elig.insured ? "brutto / 30 dni" : "miesięcznie z MOPS"} />
               <Stat label="Łącznie dla rodziny" value={<AnimatedNumber value={elig.insured ? result.totals.family : (kos?.total ?? 0)} format={zl0} />} sub={`${result.leave.totalFamilyWeeks} tyg. urlopów`} />
             </div>

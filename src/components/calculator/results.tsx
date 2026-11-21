@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 import type { BaseCalculation, BenefitSegment, CalculationResult } from "@/models/types";
-import { LegalChip } from "@/components/ui/badge";
+import { LegalChip, LegalText } from "@/components/ui/badge";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { KIND_STYLE } from "@/components/dashboard/benefit-gantt";
 import { Term } from "@/components/ui/term";
@@ -37,7 +37,7 @@ export function SummaryCard({ result, loading }: { result: CalculationResult; lo
           <div className="font-semibold text-blue">{elig.payer.payer === "zus" ? "ZUS" : "Pracodawca"}</div>
         </div>
       </div>
-      {elig.debtBlock.blocked && <div className="mt-3 rounded-xl bg-red-soft px-3 py-2 text-[13px] text-red">Wypłata zablokowana – zadłużenie {zl(elig.debtBlock.debt)} (art. 2a)</div>}
+      {elig.debtBlock.blocked && <div className="mt-3 rounded-xl bg-red-soft px-3 py-2 text-[13px] text-red">Wypłata zablokowana – zadłużenie {zl(elig.debtBlock.debt)} <LegalText>(art. 2a)</LegalText></div>}
       <div className="mt-3 text-[12px] text-muted">Konfiguracja: {result.configVersion} · kwoty brutto, przed zaliczką PIT</div>
     </div>
   );
@@ -131,7 +131,7 @@ export function BaseSteps({ base }: { base: BaseCalculation }) {
         </div>
       </div>
       {(base.minimumApplied || base.capApplied) && (
-        <p className="mt-2 text-[13px] text-gold">{base.minimumApplied ? "Zastosowano gwarancję minimalnej podstawy (art. 45)." : "Zastosowano limit podstawy dla ubezpieczenia dobrowolnego."}</p>
+        <p className="mt-2 text-[13px] text-gold"><LegalText>{base.minimumApplied ? "Zastosowano gwarancję minimalnej podstawy (art. 45)." : "Zastosowano limit podstawy dla ubezpieczenia dobrowolnego."}</LegalText></p>
       )}
     </div>
   );

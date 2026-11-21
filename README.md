@@ -51,16 +51,15 @@ cp .env.example .env.local   # ustaw ANTHROPIC_API_KEY
 ## Sprawy, statusy i powiadomienia
 
 - **Brak ręcznego odhaczania dokumentów urzędowych.** Każda sprawa ma status nadawany przez system (symulacja synchronizacji z ZUS co 10 s, `src/services/case-sync.ts`): *Niezłożony → Wysłany / zarejestrowany → W trakcie weryfikacji → Przyznany* albo *Wymaga uzupełnienia*. Tempo demonstracyjne jest przyspieszone (15 s / 45 s).
-- **Panel sprawy** (klik w dowolny wniosek, także z listy „Inne druki” i z wyszukiwarki): status i etapy oraz trzy zakładki:
-  *Jak załatwić* (instrukcja, błędy, załączniki, wzór i przykład wypełnienia z `public/formularze`), *Podgląd wniosku*
-  (kartka wypełniona danymi z profilu, edycja każdego pola przed pobraniem PDF) i *Symulacja* (co się stanie po wysłaniu –
-  wariant kompletny / z brakami; nie zmienia prawdziwego statusu). Treści: `src/data/documents.ts`, ikony druków: `src/components/cases/doc-icon.tsx`.
+- **Panel sprawy** (klik w dowolny wniosek, także z listy „Inne druki” i z wyszukiwarki): status i etapy oraz dwie zakładki:
+  *Jak załatwić* (instrukcja, błędy, załączniki, wzór i przykład wypełnienia z `public/formularze`) i *Podgląd wniosku*
+  (kartka wypełniona danymi z profilu, edycja każdego pola przed pobraniem PDF). Treści: `src/data/documents.ts`, ikony druków: `src/components/cases/doc-icon.tsx`.
 - **Powiadomienia**: dzwonek z licznikiem, krótkie toasty (ok. 2,5–3,5 s), e-mail (wersja webowa, `POST /api/notify/email` – symulacja)
   i push (Notification API w przeglądarce; w aplikacji mobilnej APNs/FCM). Użytkownik wybiera **osobno dla każdego tematu**
   (terminy, statusy, odpowiedzi ZUS, wizyty, tydzień ciąży, ryzyka) i kanału: *Ustawienia → Powiadomienia*.
 - **Wiadomości z ZUS**: *Ustawienia → Wiadomości z ZUS*. Odpowiedź (symulowana po ok. 9 s) trafia do tej skrzynki, pod dzwonek i na e-mail.
 - **Ikonka ⓘ** przy „trudnych” słowach (`Term`, `src/data/glossary.ts`) i przy polach formularzy (`Field info=…`) – m.in. „skąd wziąć liczbę ubezpieczonych”.
-- **Cytaty przepisów**: najechanie / dotknięcie oznaczenia artykułu (`LegalChip`) pokazuje brzmienie przepisu i link do ISAP (`src/data/legal-quotes.ts` – do weryfikacji przez prawnika przed wdrożeniem).
+- **Cytaty przepisów**: każde oznaczenie przepisu – etykieta `LegalChip` i odwołanie w tekście (`LegalText`, wykrywane automatycznie w podpowiedziach, podtytułach i opisach) – po najechaniu / dotknięciu pokazuje brzmienie przepisu (jeśli jest w bazie) i link do aktu (`src/data/legal-quotes.ts` – do weryfikacji przez prawnika przed wdrożeniem).
 - **Ryzyka dla świadczeń**: *Pieniądze → Centrum alertów → Na co uważać* (`src/data/risks.ts`) – utrata prawa, zmiana wymiaru lub wysokości.
 - **Wyszukiwarka** (lupka w nagłówku, Ctrl/⌘+K): sekcje, pojęcia, pytania ZUSi, druki, poradniki i telefony – bez polskich znaków też działa.
 - **Partner** dołącza z linku zaproszenia, loguje się własnym mObywatelem (kod QR) i sam uzupełnia swoje dane.

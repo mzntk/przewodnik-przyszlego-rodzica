@@ -8,7 +8,7 @@ import type { AnalysisResponse } from "@/models/document";
 import { FORM_NAMES } from "@/models/document";
 import type { SampleCase } from "@/data/samples";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { AiBadge, Badge, LegalChip } from "@/components/ui/badge";
+import { AiBadge, Badge, LegalChip, LegalText } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/form";
@@ -229,7 +229,7 @@ function Result({ res, onJson, onLoad }: { res: AnalysisResponse; onJson: () => 
             <p className="mt-4 text-[14px] text-muted">{v.payerReason} Podstawa wymiaru: {zl(v.base)} · stawka dzienna {zl(v.dailyBase)} · stawka {v.rateLabel}.</p>
             {v.blockedByDebt && (
               <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-soft px-4 py-3 text-[15px] text-red">
-                <AlertOctagon className="h-4 w-4 shrink-0" /> Wypłata zablokowana do spłaty zadłużenia (art. 2a) – prawo przedawnia się po 6 miesiącach.
+                <AlertOctagon className="h-4 w-4 shrink-0" /> <span><LegalText>Wypłata zablokowana do spłaty zadłużenia (art. 2a ustawy zasiłkowej) – prawo przedawnia się po 6 miesiącach.</LegalText></span>
               </div>
             )}
             <div className="mt-5 flex flex-wrap gap-2">
@@ -249,7 +249,7 @@ function Result({ res, onJson, onLoad }: { res: AnalysisResponse; onJson: () => 
             {[...errors, ...warnings, ...infos].map((i, k) => (
               <div key={k} className={cn("rounded-xl px-3 py-2 text-[14px]", i.severity === "error" ? "bg-red-soft text-red" : i.severity === "warning" ? "bg-orange-soft text-orange" : "bg-surface-2 text-fg-2")}>
                 <div className="font-medium">{i.message}</div>
-                {i.legal && <div className="mt-0.5 text-[13px] opacity-80">{i.legal}</div>}
+                {i.legal && <LegalChip className="mt-1.5">{i.legal}</LegalChip>}
               </div>
             ))}
           </CardBody>

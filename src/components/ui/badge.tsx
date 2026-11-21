@@ -1,6 +1,6 @@
 "use client";
 import { ExternalLink, Scale, Sparkles } from "lucide-react";
-import { ACTS, findQuote } from "@/data/legal-quotes";
+import { ACTS, LEGAL_REF, findQuotes, type ActId } from "@/data/legal-quotes";
 import { HoverPopover } from "./info-tip";
 import { cn } from "@/lib/utils";
 
@@ -41,25 +41,64 @@ export function AiBadge({ className, active = true }: { className?: string; acti
 
 const chipCls = "inline-flex items-center rounded-md border border-line bg-surface-2 px-1.5 py-0.5 text-[12px] text-muted";
 
-/** Oznaczenie przepisu. Po najechaniu / dotknięciu – dokładny cytat (jeśli jest w bazie) i link do ISAP. */
-export function LegalChip({ children, className }: { children: React.ReactNode; className?: string }) {
-  const label = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
-  const { quote, act } = findQuote(label);
-  if (!act) return <span className={cn(chipCls, className)}>{children}</span>;
+const textOf = (children: React.ReactNode): string => (typeof children === "string" || typeof children === "number" ? String(children) : Array.isArray(children) ? children.map(textOf).join("") : "");
+
+/** Treść dymka przepisu: cytat (jeśli jest w bazie) albo link do pełnego tekstu – dla KAŻDEGO oznaczenia. */
+function LegalPopover({ label, contextAct }: { label: string; contextAct?: ActId }) {
+  const hits = findQuotes(label, contextAct);
   return (
-    <HoverPopover label={`Treść przepisu: ${label}`} width={380} className={cn(chipCls, "cursor-help gap-1 text-left hover:border-brand hover:text-brand", className)} trigger={<><Scale className="h-3 w-3 shrink-0" aria-hidden />{children}</>}>
-      <div className="text-[13px] font-bold tracking-wide text-brand uppercase">{quote?.ref ?? label}</div>
-      {quote ? (
-        <blockquote className="mt-2 border-l-2 border-brand pl-3 text-[14px] leading-relaxed text-fg-2 italic">„{quote.text}”</blockquote>
-      ) : (
-        <p className="mt-2 text-[14px] text-fg-2">Pełne brzmienie przepisu znajdziesz w tekście ustawy.</p>
-      )}
-      <a href={ACTS[act].isap} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-[13px] font-bold text-brand hover:underline">
-        {ACTS[act].name} – ISAP <ExternalLink className="h-3 w-3" />
-      </a>
-      <p className="mt-2 text-[12px] text-muted">Cytat z tekstu jednolitego. Przed ważną decyzją sprawdź aktualne brzmienie w ISAP.</p>
+    <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+      {hits.map((h) => (
+        <div key={h.label}>
+          <div className="text-[13px] font-bold tracking-wide text-brand uppercase">{h.quote?.ref ?? h.label}</div>
+          {h.quote ? (
+            <blockquote className="mt-2 border-l-2 border-brand pl-3 text-[14px] leading-relaxed text-fg-2 italic">„{h.quote.text}”</blockquote>
+          ) : (
+            <p className="mt-1.5 text-[14px] text-fg-2">Pełne brzmienie tego przepisu znajdziesz w tekście aktu.</p>
+          )}
+          <a href={ACTS[h.act].isap} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] font-bold text-brand hover:underline">
+            {ACTS[h.act].name} <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      ))}
+      <p className="text-[12px] text-muted">Cytaty z tekstów jednolitych. Przed ważną decyzją sprawdź aktualne brzmienie w ISAP.</p>
+    </div>
+  );
+}
+
+/** Oznaczenie przepisu (etykieta). Każde jest podświetlane – po najechaniu / dotknięciu cytat i link do aktu. */
+export function LegalChip({ children, className, contextAct }: { children: React.ReactNode; className?: string; contextAct?: ActId }) {
+  const label = textOf(children);
+  if (!label.trim()) return <span className={cn(chipCls, className)}>{children}</span>;
+  return (
+    <HoverPopover label={`Treść przepisu: ${label}`} width={400} className={cn(chipCls, "cursor-help gap-1 border-brand/30 text-left text-brand hover:border-brand hover:bg-brand-soft", className)} trigger={<><Scale className="h-3 w-3 shrink-0" aria-hidden />{children}</>}>
+      <LegalPopover label={label} contextAct={contextAct} />
     </HoverPopover>
   );
+}
+
+/** Zwykły tekst z automatycznie podświetlonymi odwołaniami do przepisów (np. „… (art. 177 § 3 KP)”). */
+export function LegalText({ children, contextAct = "zasilkowa" }: { children: string; contextAct?: ActId }) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of children.matchAll(LEGAL_REF)) {
+    const i = m.index ?? 0;
+    if (i > last) parts.push(children.slice(last, i));
+    parts.push(
+      <HoverPopover key={i} label={`Treść przepisu: ${m[0]}`} width={400} className="inline cursor-help rounded-sm font-bold text-brand underline decoration-brand/40 decoration-dotted underline-offset-[3px] hover:decoration-brand" trigger={m[0]}>
+        <LegalPopover label={m[0]} contextAct={contextAct} />
+      </HoverPopover>,
+    );
+    last = i + m[0].length;
+  }
+  if (!parts.length) return <>{children}</>;
+  if (last < children.length) parts.push(children.slice(last));
+  return <>{parts}</>;
+}
+
+/** Jeśli treść jest tekstem – podświetl w niej przepisy; w przeciwnym razie wyrenderuj bez zmian. Działa też w komponentach serwerowych. */
+export function Legalized({ children }: { children?: React.ReactNode }) {
+  return typeof children === "string" ? <LegalText>{children}</LegalText> : <>{children}</>;
 }
 
 export const toneText: Record<Tone, string> = { blue: "text-blue", green: "text-green", orange: "text-orange", gold: "text-gold", red: "text-red", neutral: "text-fg-2" };

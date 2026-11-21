@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AiBadge, LegalChip } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ZusiaAvatar } from "./zusia";
+import Image from "next/image";
+import { ZUSIA } from "./zusia";
 
 interface Msg {
   role: "user" | "assistant";
@@ -45,16 +46,24 @@ export function ZusBot() {
 
   return (
     <>
-      <motion.button
-        onClick={() => setOpen((o) => !o)}
-        whileTap={{ scale: 0.94 }}
-        className="no-print fixed right-3 bottom-[calc(76px+env(safe-area-inset-bottom))] z-40 flex h-12 items-center gap-2 rounded-full border-2 border-brand bg-white pr-4 pl-1 text-[15px] font-bold text-brand shadow-card lg:right-6 lg:bottom-6"
-        aria-label="Otwórz czat z ZUSią"
-      >
-        <ZusiaAvatar className="size-10 border-0" />
-        <span className="hidden sm:inline">Zapytaj ZUSię</span>
-        <span className="sm:hidden">ZUSia</span>
-      </motion.button>
+      {!open && (
+        <motion.button
+          onClick={() => setOpen(true)}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ y: -4 }}
+          whileTap={{ scale: 0.95 }}
+          className="no-print group fixed right-1 bottom-[calc(64px+env(safe-area-inset-bottom))] z-40 flex items-end lg:right-4 lg:bottom-3"
+          aria-label="Otwórz czat z ZUSią"
+        >
+          <span className="relative mb-6 -mr-3 hidden rounded-2xl rounded-br-md border-2 border-brand bg-white px-3.5 py-2 text-[15px] font-bold text-brand shadow-card sm:block">
+            Zapytaj ZUSię!
+          </span>
+          <motion.span animate={{ rotate: [0, -3, 0, 3, 0] }} transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }} className="block origin-bottom drop-shadow-[0_6px_10px_rgba(17,24,39,0.18)]">
+            <Image src={ZUSIA.badge} alt="ZUSia" width={640} height={640} priority className="aspect-square size-[92px] object-contain sm:size-[120px]" />
+          </motion.span>
+        </motion.button>
+      )}
 
       <AnimatePresence>
         {open && (
@@ -67,12 +76,13 @@ export function ZusBot() {
             role="dialog"
             aria-label="Czat z ZUSią"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-line bg-brand-soft px-4 py-3">
-              <div className="flex items-center gap-2.5">
-                <ZusiaAvatar className="size-11" />
-                <div>
-                  <div className="text-[16px] font-black text-brand">ZUSia</div>
-                  <AiBadge />
+            <div className="relative flex items-end justify-between gap-3 border-b border-line bg-brand-soft px-3 pt-2 pb-2">
+              <div className="flex items-end gap-1">
+                <Image src={ZUSIA.badge} alt="" width={640} height={640} className="-mb-2 aspect-square size-20 shrink-0 object-contain" />
+                <div className="pb-2">
+                  <div className="text-[20px] leading-none font-black text-brand">ZUSia</div>
+                  <div className="mt-0.5 text-[12px] text-fg-2">Twoja przewodniczka po zasiłkach</div>
+                  <AiBadge className="mt-1" />
                 </div>
               </div>
               <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2" aria-label="Zamknij">
@@ -80,9 +90,15 @@ export function ZusBot() {
               </button>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              {msgs.length === 1 && (
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 220, damping: 18 }} className="flex justify-center">
+                  <Image src={ZUSIA.flying} alt="ZUSia w locie" width={640} height={640} className="aspect-square size-36 object-contain" />
+                </motion.div>
+              )}
               {msgs.map((m, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-                  <div className={cn("max-w-[88%] rounded-xl px-3.5 py-2.5 text-[15px] leading-relaxed whitespace-pre-line", m.role === "user" ? "bg-brand text-white" : "border border-line bg-surface")}>
+                <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={cn("flex items-end gap-1", m.role === "user" ? "justify-end" : "justify-start")}>
+                  {m.role === "assistant" && <Image src={ZUSIA.badge} alt="" width={640} height={640} className="-ml-1 aspect-square size-10 shrink-0 object-contain" />}
+                  <div className={cn("max-w-[82%] rounded-xl px-3.5 py-2.5 text-[15px] leading-relaxed whitespace-pre-line", m.role === "user" ? "bg-brand text-white" : "border border-line bg-surface")}>
                     {m.content}
                     {m.sources && m.sources.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">

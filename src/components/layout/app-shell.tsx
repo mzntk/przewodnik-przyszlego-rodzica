@@ -158,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="lg:ml-[272px]">
-          <div className="mx-auto max-w-[1180px] min-w-0 px-4 pt-6 pb-36 sm:px-8 sm:pt-10 lg:pb-20">
+          <div className="mx-auto max-w-[1180px] min-w-0 px-4 pt-6 pb-44 sm:px-8 sm:pt-10 lg:pb-36">
             {allowed ? (
               children
             ) : (

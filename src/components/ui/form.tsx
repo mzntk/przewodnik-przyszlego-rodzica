@@ -1,4 +1,5 @@
 "use client";
+import { Legalized } from "./badge";
 import { Switch as RSwitch, Slider as RSlider } from "radix-ui";
 import { cn } from "@/lib/utils";
 import { InfoTip } from "./info-tip";
@@ -14,7 +15,7 @@ export function Field({ label, hint, children, className, htmlFor, info }: { lab
         {info && <InfoTip title={info.title}>{info.body}</InfoTip>}
       </span>
       {children}
-      {hint && <p className="text-[13px] leading-snug text-muted">{hint}</p>}
+      {hint && <p className="text-[13px] leading-snug text-muted"><Legalized>{hint}</Legalized></p>}
     </div>
   );
 }
@@ -62,7 +63,7 @@ export function Switch({ checked, onCheckedChange, label, description, id }: { c
       {(label || description) && (
         <span className="min-w-0">
           {label && <span className="block text-sm font-medium text-fg">{label}</span>}
-          {description && <span className="mt-0.5 block text-[13px] leading-snug text-muted">{description}</span>}
+          {description && <span className="mt-0.5 block text-[13px] leading-snug text-muted"><Legalized>{description}</Legalized></span>}
         </span>
       )}
       <RSwitch.Root

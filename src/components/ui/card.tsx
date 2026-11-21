@@ -1,3 +1,4 @@
+import { Legalized } from "./badge";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, children, as: As = "div", ...rest }: React.HTMLAttributes<HTMLDivElement> & { as?: "div" | "section" | "article" }) {
@@ -15,7 +16,7 @@ export function CardHeader({ title, subtitle, icon, action, className }: { title
         {icon && <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-2 text-fg-2">{icon}</div>}
         <div className="min-w-0">
           <h3 className="text-[17px] font-semibold tracking-tight text-fg">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-[15px] leading-relaxed text-muted">{subtitle}</p>}
+          {subtitle && <p className="mt-0.5 text-[15px] leading-relaxed text-muted"><Legalized>{subtitle}</Legalized></p>}
         </div>
       </div>
       {action}

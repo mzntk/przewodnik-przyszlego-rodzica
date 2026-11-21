@@ -1,3 +1,4 @@
+import { Legalized } from "./badge";
 import { AlertTriangle, CheckCircle2, Info, ShieldAlert, Sparkles } from "lucide-react";
 import type { Severity } from "@/models/types";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ export function Stat({ label, value, sub, tone, className }: { label: React.Reac
     <div className={cn("min-w-0", className)}>
       <div className="text-[13px] font-medium text-muted">{label}</div>
       <div className={cn("num mt-1 truncate text-[21px] font-semibold tracking-tight sm:text-[24px]", t)}>{value}</div>
-      {sub && <div className="mt-0.5 text-[13px] text-muted">{sub}</div>}
+      {sub && <div className="mt-0.5 text-[13px] text-muted"><Legalized>{sub}</Legalized></div>}
     </div>
   );
 }
@@ -33,7 +34,7 @@ export function PageHeader({ title, description, actions }: { title: React.React
     <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-end md:justify-between">
       <div className="max-w-2xl">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight sm:text-[32px]">{title}</h1>
-        {description && <p className="mt-2 text-[16px] leading-relaxed text-fg-2">{description}</p>}
+        {description && <p className="mt-2 text-[16px] leading-relaxed text-fg-2"><Legalized>{description}</Legalized></p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>

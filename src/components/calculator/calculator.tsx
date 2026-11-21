@@ -1,4 +1,5 @@
 "use client";
+import { LegalText } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, Baby, Briefcase, Calculator as CalcIcon, Coins, HandHeart, HeartPulse, Scale, Split, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -99,7 +100,7 @@ function PregnancyTab({ r }: { r: CalculationResult }) {
           <SickLeaveEditor />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-3 rounded-xl border border-line p-3">
-              <div className="text-[13px] font-semibold text-muted uppercase">Wyjątki od okresu wyczekiwania (art. 4 ust. 3)</div>
+              <div className="text-[13px] font-semibold text-muted uppercase"><LegalText>Wyjątki od okresu wyczekiwania (art. 4 ust. 3)</LegalText></div>
               <Switch checked={!!ex.graduate} onCheckedChange={(v) => setEx("graduate", v)} label="Absolwent (zgłoszenie do 90 dni po szkole)" />
               <Switch checked={!!ex.tenYearsMandatory} onCheckedChange={(v) => setEx("tenYearsMandatory", v)} label="10 lat obowiązkowego ubezpieczenia" />
               <Switch checked={!!ex.commutingAccident} onCheckedChange={(v) => setEx("commutingAccident", v)} label="Wypadek w drodze do/z pracy" />
@@ -144,7 +145,7 @@ function PregnancyTab({ r }: { r: CalculationResult }) {
             <Stat label="Zasiłek chorobowy" value={`${s.zusDays} dni`} tone="orange" sub={r.mother.eligibility.payer.payerLabel} />
             <Stat label="Okres wyczekiwania" value={wp.satisfied ? "spełniony" : `${wp.served}/${wp.required} dni`} tone={wp.satisfied ? "green" : "red"} sub={wp.exception ? "wyjątek – od 1. dnia" : `${wp.required} dni (${wp.required === 30 ? "obowiązkowe" : "dobrowolne"})`} />
           </div>
-          {s.resetByCodeB && <div className="rounded-xl bg-green-soft px-4 py-3 text-[15px] text-green">Licznik okresu zasiłkowego zresetowany – zwolnienie z kodem „B” po przerwie (art. 9 ust. 2).</div>}
+          {s.resetByCodeB && <div className="rounded-xl bg-green-soft px-4 py-3 text-[15px] text-green"><LegalText>Licznik okresu zasiłkowego zresetowany – zwolnienie z kodem „B” po przerwie (art. 9 ust. 2).</LegalText></div>}
           {s.waitingDaysUnpaid > 0 && <div className="rounded-xl bg-orange-soft px-4 py-3 text-[15px] text-orange">{s.waitingDaysUnpaid} dni zwolnienia przypada w okresie wyczekiwania lub bez ubezpieczenia – bez prawa do zasiłku.</div>}
           <SegmentTable segments={s.segments} />
           <div className="grid gap-3 sm:grid-cols-2">
@@ -226,7 +227,7 @@ function BaseTab({ r }: { r: CalculationResult }) {
           <BaseSteps base={base} />
           {r.mother.base.method === "ciaglosc" && (
             <div className="mt-4 rounded-xl border border-line bg-surface-2 px-4 py-3 text-[14px] text-fg-2">
-              <b>Zasada ciągłości (art. 43):</b> zasiłek macierzyński następuje bezpośrednio po chorobowym (przerwa &lt; 1 miesiąca) – podstawa nie jest przeliczana i wynosi {zl(r.mother.base.base)}.
+              <b><LegalText>Zasada ciągłości (art. 43):</LegalText></b> zasiłek macierzyński następuje bezpośrednio po chorobowym (przerwa &lt; 1 miesiąca) – podstawa nie jest przeliczana i wynosi {zl(r.mother.base.base)}.
             </div>
           )}
         </CardBody>

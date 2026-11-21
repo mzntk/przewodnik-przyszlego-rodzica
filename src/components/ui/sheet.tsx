@@ -1,4 +1,5 @@
 "use client";
+import { Legalized } from "./badge";
 import { Drawer } from "vaul";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
@@ -34,7 +35,7 @@ export function Sheet({ open, onOpenChange, title, description, children, classN
           <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-3 sm:px-6 sm:pt-6">
             <div>
               <Drawer.Title className="text-lg font-semibold tracking-tight">{title}</Drawer.Title>
-              {description && <Drawer.Description className="mt-1 text-sm text-muted">{description}</Drawer.Description>}
+              {description && <Drawer.Description className="mt-1 text-sm text-muted"><Legalized>{description}</Legalized></Drawer.Description>}
             </div>
             <button onClick={() => onOpenChange(false)} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label="Zamknij">
               <X className="h-4 w-4" />

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useApp } from "@/store/app";
 import { useCalculation } from "@/hooks/use-calculation";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Badge, LegalChip } from "@/components/ui/badge";
+import { Badge, LegalChip, LegalText } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/misc";
 import { Field, Input, Switch } from "@/components/ui/form";
@@ -106,7 +106,7 @@ export function SupportView() {
                   </summary>
                   <div className="space-y-2 px-4 pb-4 pl-12 text-[15px] leading-relaxed text-fg-2">
                     {p.lines.map((l) => (
-                      <p key={l}>• {l}</p>
+                      <p key={l}>• <LegalText>{l}</LegalText></p>
                     ))}
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       {p.legal.map((l) => (

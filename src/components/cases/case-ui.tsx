@@ -1,14 +1,13 @@
 "use client";
-import { Check, ChevronRight, CirclePlay, ClipboardList, Download, ExternalLink, Eye, FileDown, FileWarning, Info, ListChecks, Paperclip, Pencil, RefreshCw, Send } from "lucide-react";
+import { Check, ChevronRight, ClipboardList, Download, ExternalLink, Eye, FileDown, FileWarning, Info, ListChecks, Paperclip, Pencil, RefreshCw, Send } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "@/store/app";
 import { useCalculation } from "@/hooks/use-calculation";
 import { CASE_STATUSES, STATUS_TONE, statusLabel, type CaseState, type CaseStatus } from "@/models/case-status";
-import { GUIDES, type DocGuide, type DocId, type Recipient } from "@/data/documents";
+import { GUIDES, type DocId, type Recipient } from "@/data/documents";
 import { DocIcon } from "./doc-icon";
 import { MotionTabs } from "@/components/ui/tabs";
-import { Segmented } from "@/components/ui/form";
 import { FORM_ID, listCases, guideContext, type CaseItem } from "@/lib/cases";
 import { buildForms } from "@/components/forms/form-catalog";
 import { buildFormPdf, downloadBytes } from "@/lib/pdf";
@@ -16,7 +15,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Badge, LegalChip } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Term } from "@/components/ui/term";
-import { cn, dPL, dShort, plural, zl } from "@/lib/utils";
+import { cn, dPL, dShort, plural } from "@/lib/utils";
 
 export function StatusPill({ status, to, className }: { status: CaseStatus; to: Recipient; className?: string }) {
   return (
@@ -152,58 +151,6 @@ function PaperPreview({ code, title, addressee, fields, values, onChange, statem
   );
 }
 
-const SIM_DAYS: Record<string, number> = { ZAM: 18, "Z-3": 14, "Z-3a": 16, "ZAS-53": 21, "Z-15A": 12, "Z-12": 25, Wniosek: 7, USC: 3 };
-
-/** Symulacja wniosku: co się wydarzy po wysłaniu – bez zmiany prawdziwego statusu sprawy. */
-function Simulation({ g, complete, payerIsZus, amount }: { g: DocGuide; complete: boolean; payerIsZus: boolean; amount?: number }) {
-  const [withGaps, setWithGaps] = useState(!complete);
-  const [step, setStep] = useState(-1);
-  const base = SIM_DAYS[g.code] ?? 14;
-  const days = Math.round((g.to === "pracodawca" ? base * 0.6 : base) * (withGaps ? 1.8 : 1));
-  const channel = g.to === "ZUS" ? "PUE/eZUS" : g.to === "USC" ? "gov.pl" : "kadry pracodawcy";
-  const steps = [
-    { day: 0, title: "Wysyłasz wniosek", text: `Przez ${channel}. Dostajesz potwierdzenie (UPO) z numerem sprawy.` },
-    { day: 1, title: "Rejestracja", text: g.to === "ZUS" ? "ZUS rejestruje sprawę i przypisuje ją do oddziału." : g.to === "USC" ? "Urząd rejestruje zgłoszenie." : "Kadry przyjmują wniosek." },
-    { day: 2, title: "Weryfikacja", text: g.to === "ZUS" ? `ZUS sprawdza Twoje ubezpieczenie, ${payerIsZus ? "zaświadczenie Z-3 od pracodawcy" : "dokumenty"} i dane z rejestru USC.` : "Sprawdzenie kompletności i terminów." },
-    ...(withGaps ? [{ day: Math.round(days / 2), title: "Prośba o uzupełnienie", text: "Brakuje danych lub załącznika – masz zwykle 7 dni na uzupełnienie. Termin rozpatrzenia liczy się od nowa.", warn: true }] : []),
-    { day: days, title: g.to === "ZUS" ? "Decyzja i wypłata" : g.to === "USC" ? "Sprawa załatwiona" : "Wniosek zatwierdzony", text: g.to === "ZUS" ? `Zasiłek trafia na konto${amount ? ` – ok. ${zl(amount)} miesięcznie` : ""}. ZUS ma na wypłatę do 30 dni od otrzymania kompletu dokumentów.` : g.to === "USC" ? "Akt urodzenia sporządzony, PESEL nadany – odpis trafi do ZUS automatycznie." : "Urlop wpisany do akt; zasiłek wypłaca pracodawca razem z pensją." },
-  ];
-  useEffect(() => {
-    if (step < 0 || step >= steps.length - 1) return;
-    const t = setTimeout(() => setStep((x) => x + 1), 900);
-    return () => clearTimeout(t);
-  }, [step, steps.length]);
-  return (
-    <div className="rounded-xl border border-line p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Segmented value={withGaps ? "braki" : "ok"} onChange={(v) => (setWithGaps(v === "braki"), setStep(-1))} options={[{ value: "ok", label: "Kompletny" }, { value: "braki", label: "Z brakami" }]} />
-        <Button size="sm" onClick={() => setStep(0)}>
-          <CirclePlay className="h-4 w-4" /> {step < 0 ? "Uruchom symulację" : "Od nowa"}
-        </Button>
-      </div>
-      <ol className="mt-4 space-y-0">
-        {steps.map((x, i) => {
-          const on = i <= step;
-          const warn = "warn" in x && x.warn;
-          return (
-            <li key={x.title} className="relative flex gap-3 pb-4 last:pb-0">
-              {i < steps.length - 1 && <span className={cn("absolute top-6 bottom-0 left-[11px] w-0.5", i < step ? "bg-brand" : "bg-line")} />}
-              <span className={cn("relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 text-[11px] font-bold transition-colors", on ? (warn ? "border-orange bg-orange text-white" : "border-brand bg-brand text-white") : "border-line bg-white text-muted")}>{i + 1}</span>
-              <div className={cn("min-w-0 transition-opacity", on ? "opacity-100" : "opacity-45")}>
-                <div className="text-[15px] font-bold">
-                  {x.title} <span className="font-normal text-muted">· {x.day === 0 ? "dzień 0" : `ok. ${x.day}. dzień`}</span>
-                </div>
-                <p className="text-[14px] text-fg-2">{x.text}</p>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-      <p className="mt-3 text-[12px] text-muted">Symulacja na podstawie średnich czasów rozpatrywania (model demonstracyjny). Nie zmienia statusu Twojej sprawy.</p>
-    </div>
-  );
-}
-
 /** Globalny panel sprawy – otwierany z pulpitu, listy spraw, wyszukiwarki i panelu taty. */
 export function CaseSheet() {
   const { activeCase, openCase, data, cases, setCase, profileId, account } = useApp();
@@ -211,7 +158,7 @@ export function CaseSheet() {
   const files = useFormFiles();
   const [values, setValues] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState(false);
-  const [tab, setTab] = useState<"jak" | "podglad" | "symulacja">("jak");
+  const [tab, setTab] = useState<"jak" | "podglad">("jak");
   const [busy, setBusy] = useState(false);
   const item = useMemo<CaseItem | undefined>(() => {
     if (!result || !activeCase) return undefined;
@@ -235,7 +182,6 @@ export function CaseSheet() {
   const signer = fieldValues.name || `${data.mother.firstName} ${data.mother.lastName}`;
   const blank = g && files.find((f) => f === `${g.id}.pdf`);
   const sample = g && files.find((f) => f === `${g.id}-przyklad.pdf`);
-  const monthly = result.segments.find((x) => x.who === (g?.owner === "tata" ? "ojciec" : "matka") && x.monthlyAmount > 0)?.monthlyAmount;
 
   async function exportPdf() {
     if (!form || !g) return;
@@ -296,7 +242,6 @@ export function CaseSheet() {
             tabs={[
               { id: "jak", label: "Jak załatwić", icon: <ListChecks className="h-4 w-4" /> },
               ...(form ? [{ id: "podglad" as const, label: missing ? `Podgląd (${missing} do uzup.)` : "Podgląd wniosku", icon: <Eye className="h-4 w-4" /> }] : []),
-              { id: "symulacja", label: "Symulacja", icon: <CirclePlay className="h-4 w-4" /> },
             ]}
           />
 
@@ -381,8 +326,6 @@ export function CaseSheet() {
               )}
             </div>
           )}
-
-          {tab === "symulacja" && <Simulation g={g} complete={missing === 0} payerIsZus={ctx.payerIsZus} amount={monthly} />}
 
           <div className="sticky bottom-0 -mx-5 flex flex-col gap-2 border-t border-line bg-white px-5 pt-4 sm:-mx-6 sm:flex-row sm:px-6">
             {form && (

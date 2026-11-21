@@ -3,12 +3,19 @@
  * Brzmienie wg tekstów jednolitych – PRZED WDROŻENIEM każdy cytat weryfikuje prawnik ZUS w ISAP.
  * Aby dodać przepis: dopisz wpis z `match` (fragment oznaczenia, małe litery) i `act`.
  */
-export type ActId = "kp" | "zasilkowa" | "usus";
+export type ActId = "kp" | "zasilkowa" | "usus" | "usr" | "emerytalna" | "asc" | "800plus" | "rodo" | "rozp" | "inne";
 
 export const ACTS: Record<ActId, { name: string; isap: string }> = {
   kp: { name: "Kodeks pracy", isap: "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU19740240141" },
   zasilkowa: { name: "Ustawa o świadczeniach pieniężnych z ubezpieczenia społecznego w razie choroby i macierzyństwa", isap: "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU19990600636" },
   usus: { name: "Ustawa o systemie ubezpieczeń społecznych", isap: "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU19981370887" },
+  usr: { name: "Ustawa o świadczeniach rodzinnych", isap: "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20032282255" },
+  emerytalna: { name: "Ustawa o emeryturach i rentach z FUS", isap: "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU19981621118" },
+  asc: { name: "Prawo o aktach stanu cywilnego", isap: "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20140001741" },
+  "800plus": { name: "Ustawa o pomocy państwa w wychowywaniu dzieci", isap: "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20160000195" },
+  rodo: { name: "RODO – rozporządzenie (UE) 2016/679", isap: "https://eur-lex.europa.eu/eli/reg/2016/679/oj" },
+  rozp: { name: "Rozporządzenie MRPiPS (wnioski i dokumenty)", isap: "https://isap.sejm.gov.pl/" },
+  inne: { name: "Internetowy System Aktów Prawnych", isap: "https://isap.sejm.gov.pl/" },
 };
 
 interface Quote {
@@ -34,13 +41,53 @@ export const LEGAL_QUOTES: Quote[] = [
   { match: ["art. 11", "u.s.u.s"], act: "usus", ref: "art. 11 ust. 2 ustawy o systemie ubezpieczeń społecznych", text: "Dobrowolnie, na swój wniosek, ubezpieczeniu chorobowemu mogą przystąpić osoby objęte obowiązkowo ubezpieczeniami emerytalnym i rentowymi, wymienione w art. 6 ust. 1 pkt 2, 4, 5 i 8." },
 ];
 
-const actOf = (s: string): ActId | null => (/\bkp\b|kodeks/.test(s) ? "kp" : /zasiłk/.test(s) ? "zasilkowa" : /u\.s\.u\.s|systemie ubezp/.test(s) ? "usus" : null);
+const actOf = (s: string): ActId | null =>
+  /\bkp\b|kodeks/.test(s) ? "kp"
+  : /zasiłk/.test(s) ? "zasilkowa"
+  : /u\.s\.u\.s|systemie ubezp/.test(s) ? "usus"
+  : /u\.ś\.r|świadczeniach rodzinnych/.test(s) ? "usr"
+  : /emerytal|emeryturach/.test(s) ? "emerytalna"
+  : /stanu cywilnego/.test(s) ? "asc"
+  : /800\+|wychowywaniu dzieci/.test(s) ? "800plus"
+  : /rodo/.test(s) ? "rodo"
+  : /rozp|zał\./.test(s) ? "rozp"
+  : null;
 
-/** Znajdź cytat do oznaczenia przepisu (np. „art. 177 § 3 KP”). Brak dopasowania → tylko link do ustawy (o ile ją rozpoznano). */
+/** Pojedynczy przepis (zgodność wsteczna). */
 export function findQuote(label: string): { quote?: Quote; act: ActId | null } {
-  const s = label.toLowerCase().replace(/\s+/g, " ");
-  // „art. 6” nie może pasować do „art. 61”, a „art. 4” do „art. 48a” – po cyfrze wymagamy końca numeru
-  const has = (m: string) => new RegExp(m.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (/[0-9¹²³]$/.test(m) ? "(?![0-9a-z¹²³⁴])" : "")).test(s);
-  const quote = LEGAL_QUOTES.find((q) => q.match.every(has));
-  return { quote, act: quote?.act ?? actOf(s) };
+  const [hit] = findQuotes(label);
+  return { quote: hit?.quote, act: hit && hit.act !== "inne" ? hit.act : null };
 }
+
+export interface QuoteHit {
+  label: string;
+  quote?: Quote;
+  act: ActId;
+}
+
+/**
+ * Cytaty do oznaczenia przepisu (także kilku naraz, np. „art. 177 § 3 KP; art. 30 ust. 4 ustawy zasiłkowej”).
+ * `contextAct` – ustawa domyślna, gdy oznaczenie jej nie podaje (np. „art. 2a” w kalkulatorze = ustawa zasiłkowa).
+ */
+export function findQuotes(label: string, contextAct?: ActId): QuoteHit[] {
+  return label
+    .split(/;\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const s = part.toLowerCase().replace(/\s+/g, " ");
+      const act = actOf(s) ?? contextAct ?? "inne";
+      // dopisz nazwę ustawy z kontekstu, gdy oznaczenie jej nie zawiera (np. „art. 2a” w kalkulatorze)
+      const t = actOf(s) ? s : `${s} ${act === "kp" ? "kp" : act === "zasilkowa" ? "ustawy zasiłkowej" : act === "usus" ? "u.s.u.s." : ""}`;
+      // „art. 6” nie może pasować do „art. 61”, a „art. 4” do „art. 48a” – po cyfrze wymagamy końca numeru
+      const has = (m: string) => new RegExp(m.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (/[0-9¹²³]$/.test(m) ? "(?![0-9a-z¹²³⁴])" : "")).test(t);
+      const unit = (x: string, re: RegExp) => x.toLowerCase().match(re)?.[1];
+      // gdy etykieta wskazuje inny ustęp/paragraf niż cytat w bazie – nie pokazujemy cudzego brzmienia
+      const sameUnit = (q: Quote) => [/ust\. ?(\d+[a-z]*)/, /§ ?(\d+)/].every((re) => !unit(s, re) || !unit(q.ref, re) || unit(s, re) === unit(q.ref, re));
+      const quote = LEGAL_QUOTES.find((q) => q.act === act && q.match.every(has) && sameUnit(q));
+      return { label: part, quote, act };
+    });
+}
+
+/** Wzorzec odwołań do przepisów w zwykłym tekście (np. „(art. 177 § 3 KP)”, „§ 13 ust. 2”). */
+export const LEGAL_REF = /(?:\b[Aa]rt\.|§)\s?\d+[a-z]?[¹²³⁴]?[a-z]?(?:\s?[–-]\s?\d+[a-z¹²³⁴]*)?(?:\s?§\s?\d+(?:\s?[–-]\s?\d+)?)?(?:\s?ust\.\s?\d+[a-z]*)?(?:\s?pkt\s?\d+)?(?:\s(?:KP|Kodeksu pracy|ustawy zasiłkowej|ustawy emerytalnej|u\.s\.u\.s\.|u\.ś\.r\.|RODO|rozporządzenia(?: MRPiPS)?(?: z \d{1,2}\.\d{2}\.\d{4})?|rozp\. z \d{1,2}\.\d{2}\.\d{4}))?/g;

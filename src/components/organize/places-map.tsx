@@ -32,7 +32,7 @@ const route = (p: Place) => `https://www.google.com/maps/dir/?api=1&destination=
 export default function PlacesMap({ places, focus, user, center }: { places: Place[]; focus: [number, number] | null; user: [number, number] | null; center: [number, number] }) {
   return (
     <MapContainer center={center} zoom={12} scrollWheelZoom={false} className="h-[340px] w-full sm:h-[460px]" attributionControl>
-      <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+      <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       {places.map((p) => (
         <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={10} pathOptions={{ color: "#ffffff", weight: 3, fillColor: PLACE_COLORS[p.type], fillOpacity: 1 }}>
           <Popup>

@@ -161,7 +161,7 @@ export function SupportView() {
         <div className="split-scroll min-w-0 space-y-4 xl:col-span-5">
           <EpdsCard />
           <Card>
-            <CardHeader title="Telefony wsparcia" subtitle="Wszystkie numery z aplikacji – bez tych z Panelu SOS powyżej" icon={<PhoneCall className="h-4 w-4" />} />
+            <CardHeader title="Telefony wsparcia" icon={<PhoneCall className="h-4 w-4" />} />
             <CardBody className="space-y-2">
               {allPhones(sos.map((x) => x.href.replace("tel:", ""))).map((h) => (
                 <a key={h.number} href={`tel:${h.number.replace(/\s/g, "")}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-line px-4 py-3 hover:border-brand">

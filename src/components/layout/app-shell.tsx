@@ -26,14 +26,14 @@ export function AppLogo({ className, priority }: { className?: string; priority?
   return <Image src="/brand/logo-aplikacji.png" alt="Przewodnik Przyszłego Rodzica – logo" width={512} height={512} priority={priority} className={cn("aspect-square size-10 shrink-0 rounded-xl object-contain", className)} />;
 }
 
+/** Znak w aplikacji: logo ZUS (oryginalne proporcje). Logo aplikacji pokazujemy wyłącznie na ekranie logowania. */
 export function AppBrand({ compact }: { compact?: boolean }) {
-  return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      <AppLogo className={compact ? "size-9" : "size-11"} priority />
-      <span className="min-w-0 leading-tight">
-        <span className={cn("block truncate font-black tracking-tight text-brand", compact ? "text-[15px]" : "text-[16px]")}>Przewodnik</span>
-        <span className={cn("block truncate font-bold text-fg-2", compact ? "text-[12px]" : "text-[13px]")}>Przyszłego Rodzica</span>
-      </span>
+  return compact ? (
+    <ZusLogo className="h-7" priority />
+  ) : (
+    <span className="flex flex-col gap-2">
+      <ZusLogo className="h-8" priority />
+      <span className="text-[13px] text-muted">Przewodnik Przyszłego Rodzica</span>
     </span>
   );
 }

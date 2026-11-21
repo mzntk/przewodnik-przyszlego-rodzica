@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
+  // Przykładowe PDF-y są czytane z dysku przez API – na Vercel muszą trafić do paczki funkcji.
+  outputFileTracingIncludes: {
+    "/api/documents/analyze": ["./public/samples/**/*"],
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

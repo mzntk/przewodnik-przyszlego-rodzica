@@ -5,10 +5,12 @@
  */
 import "server-only";
 import { promises as fs } from "fs";
+import os from "os";
 import path from "path";
 import { DEFAULT_LEGAL_CONFIG_2026, type LegalConfig } from "@/models/legal-config";
 
-const FILE = path.join(process.cwd(), ".data", "legal-config.json");
+// Na Vercel system plików jest tylko do odczytu (poza katalogiem tymczasowym) – konfiguracja żyje w /tmp danej instancji.
+const FILE = process.env.VERCEL ? path.join(os.tmpdir(), "zasilkowy-przewodnik", "legal-config.json") : path.join(process.cwd(), ".data", "legal-config.json");
 let cache: LegalConfig | null = null;
 const history: { at: string; path: string; from: unknown; to: unknown }[] = [];
 

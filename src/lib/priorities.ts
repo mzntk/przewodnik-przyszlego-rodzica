@@ -25,6 +25,7 @@ const DEADLINE_CASE: Record<string, (employee: boolean) => DocId> = {
   "combine-work": () => "URLOP-LACZENIE",
   "800plus": () => "800PLUS",
   paternity: () => "URLOP-OJC",
+  "paternity-app": () => "URLOP-OJC",
   z12: () => "Z-12",
 };
 

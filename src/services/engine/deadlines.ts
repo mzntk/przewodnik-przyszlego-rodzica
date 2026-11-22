@@ -108,6 +108,19 @@ export function buildDeadlines(input: CaseInput, cfg: LegalConfig, ctx: Ctx): De
     });
   }
 
+  if (ctx.fatherInsured && bio && !child.birthDate && input.father?.title === "uop" && input.plan.paternity.enabled) {
+    list.push({
+      id: "paternity-app",
+      date: addDays(child.dueDate, -7),
+      title: "Wniosek taty o urlop ojcowski od porodu",
+      description: "Jeśli tata chce zacząć urlop ojcowski w dniu porodu, składa wniosek u pracodawcy min. 7 dni wcześniej – z przewidywaną datą porodu.",
+      who: "ojciec",
+      severity: "info",
+      kind: "przed_porodem",
+      legal: [{ act: "Kodeks pracy", article: "art. 182³ § 2" }],
+    });
+  }
+
   if (ctx.fatherInsured && !child.stillbirth) {
     list.push({
       id: "paternity",

@@ -8,6 +8,7 @@ import { Term } from "@/components/ui/term";
 import { CaseRow, caseStatus, useCases } from "@/components/cases/case-ui";
 import { GUIDES } from "@/data/documents";
 import { DocIcon } from "@/components/cases/doc-icon";
+import { PrebirthPlan } from "@/components/dashboard/prebirth-plan";
 import type { CaseStatus } from "@/models/case-status";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ const GROUPS: { title: string; statuses: CaseStatus[]; empty: string }[] = [
 
 /** Moje sprawy: wnioski i dokumenty ze statusem z ZUS. Instrukcje otwierają się po kliknięciu sprawy. */
 export function Applications() {
-  const { cases, casesSyncedAt, openCase } = useApp();
+  const { cases, casesSyncedAt, openCase, account } = useApp();
   const { result } = useCalculation();
   const { items, ready } = useCases();
   const [why, setWhy] = useState(false);
@@ -68,6 +69,8 @@ export function Applications() {
           </div>
         )}
       </section>
+
+      <PrebirthPlan forDad={account === "tata"} />
 
       {GROUPS.map((group) => {
         const list = items.filter((i) => group.statuses.includes(caseStatus(cases, i.guide.id)));

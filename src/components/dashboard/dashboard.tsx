@@ -12,6 +12,7 @@ import { PregnancyWidget } from "@/components/pregnancy/pregnancy-widget";
 import { BirthPrompt } from "@/components/pregnancy/birth-sheet";
 import { childNames } from "@/lib/child";
 import { CaseRow, useCases } from "@/components/cases/case-ui";
+import { PrebirthPlan } from "./prebirth-plan";
 import { AddPartnerSheet } from "@/components/partner/add-partner";
 import { Skeleton } from "@/components/ui/misc";
 import { cn, dShort, plural } from "@/lib/utils";
@@ -120,6 +121,7 @@ function MamaHome() {
       <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-10">
           <Priorities />
+          <PrebirthPlan />
           <CaseStatuses title="Moje sprawy w ZUS" />
         </div>
         <div className="space-y-4">
@@ -165,6 +167,7 @@ function DadHome() {
           {access.formalities || access.leave ? (
             <>
               <Priorities forDad />
+              <PrebirthPlan forDad />
               <CaseStatuses title="Moje sprawy" />
             </>
           ) : (

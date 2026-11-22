@@ -104,21 +104,37 @@ export interface AnalysisResponse {
   fieldSources: Record<string, "regex" | "ai" | "regex+ai">;
   issues: ValidationIssue[];
   textPreview: string;
-  verdict: {
-    insured: boolean;
-    insuredLabel: string;
-    legalBasis: string;
-    payer: string;
-    payerReason: string;
-    benefitLabel: string;
-    monthly: number;
-    dailyBase: number;
-    base: number;
-    rateLabel: string;
-    periodFrom: string | null;
-    periodTo: string | null;
-    totalWeeks: number;
-    total: number;
-    blockedByDebt: boolean;
-  };
+  verdict: Verdict;
+  /** Sposób wyliczenia podstawy (krok po kroku) */
+  base: import("./types").BaseCalculation;
+}
+
+export interface Verdict {
+  insured: boolean;
+  insuredLabel: string;
+  legalBasis: string;
+  payer: string;
+  payerReason: string;
+  benefitLabel: string;
+  monthly: number;
+  dailyBase: number;
+  base: number;
+  rateLabel: string;
+  periodFrom: string | null;
+  periodTo: string | null;
+  totalWeeks: number;
+  total: number;
+  blockedByDebt: boolean;
+  segments: { label: string; from: string; to: string; weeks: number; rate: number; monthly: number; total: number }[];
+}
+
+/** Ocena całej sprawy (teczki dokumentów) – po scaleniu lub po ręcznej korekcie pól. */
+export interface CaseEvaluation {
+  document: ExtractedDocument;
+  /** pole → indeks dokumentu w teczce, z którego pochodzi wartość */
+  fieldFrom: Record<string, number>;
+  caseInput: import("./types").CaseInput;
+  verdict: Verdict;
+  base: import("./types").BaseCalculation;
+  issues: ValidationIssue[];
 }

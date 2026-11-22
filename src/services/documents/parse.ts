@@ -19,6 +19,13 @@ export function normalizeDate(raw: string | undefined | null): string | null {
   if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   m = s.match(/(\d{1,2})\s+([a-ząćęłńóśźż]+)\s+(\d{4})/i);
   if (m && MONTHS[m[2].toLowerCase()]) return `${m[3]}-${MONTHS[m[2].toLowerCase()]}-${m[1].padStart(2, "0")}`;
+  // druki ZUS z kratkami: DDMMRRRR (np. „15012027” po sklejeniu kratek)
+  m = s.match(/^(\d{2})\s?(\d{2})\s?((?:19|20)\d{2})$/);
+  if (m) {
+    const iso = `${m[3]}-${m[2]}-${m[1]}`;
+    const d = new Date(`${iso}T00:00:00Z`);
+    if (!Number.isNaN(d.getTime()) && d.toISOString().startsWith(iso)) return iso;
+  }
   return null;
 }
 
@@ -26,7 +33,18 @@ export function parseAmount(raw: string): number {
   return Number(raw.replace(/\s| /g, "").replace(/zł/i, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."));
 }
 
-const DATE = String.raw`(\d{1,2}[-./]\d{1,2}[-./]\d{4}|\d{4}[-./]\d{1,2}[-./]\d{1,2})`;
+const DATE = String.raw`(\d{1,2}[-./]\d{1,2}[-./]\d{4}|\d{4}[-./]\d{1,2}[-./]\d{1,2}|(?<!\d)[0-3]\d[01]\d(?:19|20)\d{2}(?!\d))`;
+
+/**
+ * Ujednolicenie tekstu z oficjalnych druków ZUS: cyfry wpisane w kratki („8 5 0 1 0 1 …”, „8|5|0|1…”)
+ * sklejamy w jeden numer (PESEL, NIP, REGON, NRB, daty DDMMRRRR), a znaki X w polach wyboru zamieniamy na [x].
+ */
+export function normalizeFormText(text: string): string {
+  return text
+    .replace(/\r/g, "")
+    .replace(/(?<![\d,])\d(?:[ \u00a0|]{1,2}\d){7,27}(?![\d,])/g, (m) => m.replace(/[ \u00a0|]/g, ""))
+    .replace(/[ \t]+/g, " ");
+}
 const AMOUNT = String.raw`(\d{1,3}(?:[  .]?\d{3})*(?:,\d{2})?)`;
 
 function find(text: string, re: RegExp): string | null {
@@ -52,7 +70,7 @@ export function detectFormType(text: string): FormCode {
 }
 
 export function parseDocumentText(text: string): ExtractedDocument {
-  const t = text.replace(/\r/g, "").replace(/[ \t]+/g, " ");
+  const t = normalizeFormText(text);
   const formType = detectFormType(t);
 
   // --- identyfikatory

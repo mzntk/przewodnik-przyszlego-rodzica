@@ -19,7 +19,7 @@ import { TestModeBox } from "@/components/onboarding/test-mode";
 
 /** Logo ZUS – zawsze w oryginalnych proporcjach (wysokość ustalana klasą, szerokość automatyczna, bez rozciągania). */
 export function ZusLogo({ className, priority }: { className?: string; priority?: boolean }) {
-  return <Image src="/logo-zus.png" alt="Zakład Ubezpieczeń Społecznych" width={4200} height={944} priority={priority} className={cn("h-7 w-auto max-w-none shrink-0 object-contain", className)} />;
+  return <Image src="/logo-zus.png" alt="Zakład Ubezpieczeń Społecznych" width={4200} height={946} priority={priority} className={cn("h-7 w-auto max-w-none shrink-0 object-contain", className)} />;
 }
 
 /** Logo aplikacji (kwadratowe 1:1) – rozmiar podajemy jedną klasą `size-*`, proporcje są zablokowane. */

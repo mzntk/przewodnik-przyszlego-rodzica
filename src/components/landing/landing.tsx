@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MObywatelLogin, type LoginMode } from "@/components/onboarding/mobywatel-login";
 import { TestModeBox } from "@/components/onboarding/test-mode";
-import { AppLogo, ZusLogo, homeFor } from "@/components/layout/app-shell";
+import { ZusLogo, homeFor } from "@/components/layout/app-shell";
 import { ZusiaSays } from "@/components/bot/zusia";
 import { useApp, profileKey } from "@/store/app";
 import { useMounted } from "@/hooks/use-mounted";
@@ -63,7 +63,7 @@ export function Landing() {
         </ZusiaSays>
         <div className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
           <div className="flex flex-col items-center gap-3 text-center">
-            <AppLogo className="size-20 rounded-2xl sm:size-24" priority />
+            <ZusLogo className="h-10 sm:h-12" priority />
             <h1 className="text-[24px] leading-tight font-black tracking-tight text-brand sm:text-[26px]">Przewodnik Przyszłego Rodzica</h1>
           </div>
 
@@ -104,10 +104,6 @@ export function Landing() {
         <button onClick={() => (login("admin", "manual", null), router.replace("/admin"))} className="mx-auto mt-5 block text-[13px] text-muted underline-offset-4 hover:text-fg-2 hover:underline">
           Wejście dla administratora ZUS
         </button>
-        <div className="mt-4 flex items-center justify-center gap-2 text-[12px] text-muted">
-          <span>Projekt dla</span>
-          <ZusLogo className="h-5" />
-        </div>
       </motion.div>
       <MObywatelLogin open={open} onOpenChange={setOpen} account={role} mode={mode} inviteCode={invited} />
     </div>

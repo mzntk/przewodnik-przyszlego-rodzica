@@ -93,11 +93,6 @@ export function ZusBot() {
               </button>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-              {msgs.length === 1 && (
-                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 220, damping: 18 }} className="flex justify-center">
-                  <Image src={ZUSIA.flying} alt="ZUSia w locie" width={640} height={640} className="aspect-square size-36 object-contain" />
-                </motion.div>
-              )}
               {msgs.map((m, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={cn("flex items-end gap-1", m.role === "user" ? "justify-end" : "justify-start")}>
                   {m.role === "assistant" && <Image src={ZUSIA.badge} alt="" width={640} height={640} className="-ml-1 aspect-square size-10 shrink-0 object-contain" />}

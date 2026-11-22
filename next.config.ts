@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/documents/analyze": ["./public/samples/**/*"],
     "/api/forms": ["./public/formularze/**/*"],
+    "/api/forms/prefill": ["./public/formularze/**/*", "./public/fonts/**/*"],
   },
   partialPrefetching: true,
   turbopack: {

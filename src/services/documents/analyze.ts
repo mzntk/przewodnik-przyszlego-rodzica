@@ -13,7 +13,8 @@ import { aiExtract } from "@/services/ai/extract";
 import { AI_MODEL } from "@/services/ai/client";
 import { evaluateDocument } from "./evaluate";
 import { readAcroForm } from "@/lib/official-pdf";
-import { OFFICIAL_TO_FORMCODE, applyFormFields, detectOfficialForm, fieldLabel, findConflicts } from "@/data/official-forms";
+import { OFFICIAL_TO_FORMCODE, applyFormFields, detectOfficialForm } from "@/data/official-forms";
+import { checkForm } from "@/services/forms/check";
 
 export async function extractPdfText(bytes: Uint8Array): Promise<{ text: string; pages: number }> {
   const pdf = await getDocumentProxy(bytes);
@@ -63,8 +64,10 @@ export async function analyzePdf(bytes: Uint8Array, fileName: string, cfg: Legal
   }
   const issues = validateDocument(doc);
   if (officialForm) {
-    for (const c of findConflicts(officialForm, formFields))
-      issues.unshift({ field: "checkbox", severity: "error", message: `Zaznaczono wykluczające się pola – ${c.label}: ${c.checked.map((k) => `„${fieldLabel(officialForm, k)}”`).join(" i ")}. Zostaw jedno zaznaczenie.`, legal: "instrukcja wypełniania druku ZUS" });
+    // formuły sprawdzania druku (services/forms/check): wykluczające się zaznaczenia, zależności, daty, sumy kontrolne NRB/dowodu
+    const fc = checkForm(officialForm, formFields);
+    for (const i of [...fc.warnings, ...fc.errors].filter((x) => x.rule !== "suma-kontrolna" || /rachunk|dokument/i.test(x.label)))
+      issues.unshift({ field: i.field, severity: i.severity, message: i.message, legal: { "wykluczajace": "instrukcja wypełniania druku ZUS", "zaleznosc": "instrukcja wypełniania druku ZUS", "data": "format dd/mm/rrrr", "format": "format pola druku", "suma-kontrolna": "suma kontrolna", "wymagane": "pole wymagane" }[i.rule] });
     const sig = issues.findIndex((i) => i.field === "signed");
     if (sig >= 0) issues[sig] = { ...issues[sig], severity: "warning", message: "Podpisz druk po wydrukowaniu (podpisu nie da się wpisać w pole PDF) albo złóż go przez PUE/eZUS – tam podpisujesz elektronicznie." };
   }

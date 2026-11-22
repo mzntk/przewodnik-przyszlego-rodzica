@@ -34,7 +34,7 @@ export const OFFICIAL_FORMS: Record<OfficialFormId, OfficialFormMeta> = {
 };
 
 /** Normalizacja nazwy pola AcroForm: „topmostSubform[0].Page1[0].PESEL[0]” → „Page1.PESEL”. */
-export const fieldKey = (raw: string) => raw.replace(/^(topmostSubform|form1)\[\d+\]\./, "").replace(/\[\d+\]/g, "");
+export const fieldKey = (raw: string) => raw.replace(/^(topmostSubform|form1)\[\d+\]\./, "").replace(/\[0\]/g, "");
 
 /* ------------------------------ kontekst ------------------------------ */
 
@@ -75,6 +75,8 @@ export interface OfficialField {
   label: string;
   section: string;
   check?: boolean;
+  /** lista rozwijana – wartość to początek opcji (np. „11” → „11 – dziecko własne…”) */
+  select?: boolean;
   /** wartość z danych aplikacji (potok 1); undefined = zostaw puste */
   fill?: (c: FormCtx) => FieldValue | undefined;
   /** odczyt do ustandaryzowanego dokumentu (potok 2) */
@@ -243,7 +245,10 @@ const ZCNA_FIELDS: OfficialField[] = [
   { name: "Page1.III05_Nazwisko", label: "Nazwisko ubezpieczonego", section: "Dane ubezpieczonego", fill: (c) => up(applicant(c).lastName), read: "lastName" },
   { name: "Page1.III06_Imie", label: "Imię ubezpieczonego", section: "Dane ubezpieczonego", fill: (c) => up(applicant(c).firstName), read: "firstName" },
   { name: "Page1.III07_DataUrodzenia", label: "Data urodzenia ubezpieczonego", section: "Dane ubezpieczonego", fill: (c) => date8(applicant(c).birthDate) },
+  { name: "Page1.IV01A_zgloszenie", label: "Rodzaj: 1 – zgłoszenie, 2 – zmiana danych", section: "Członek rodziny – dziecko", select: true, fill: () => "1" },
   { name: "Page1.IV02A_DataUrodzenia", label: "Data zgłoszenia / zmiany", section: "Członek rodziny – dziecko", fill: (c) => date8(c.today) },
+  { name: "Page1.IV10A", label: "Stopień pokrewieństwa (kod)", section: "Członek rodziny – dziecko", select: true, fill: (c) => (c.d.child.path === "rodzina_zastepcza" ? "21" : "11") },
+  { name: "Page1.IV12A", label: "Niepełnosprawność (kod)", section: "Członek rodziny – dziecko", select: true, fill: () => "0" },
   { name: "Page1.IV03A_NrPESEL", label: "PESEL dziecka", section: "Członek rodziny – dziecko", fill: (c) => child0(c)?.pesel, read: "childPesel" },
   { name: "Page1.IV07A_Nazwisko", label: "Nazwisko dziecka", section: "Członek rodziny – dziecko", fill: (c) => up(child0(c)?.lastName || applicant(c).lastName), read: "childLast" },
   { name: "Page1.IV08A_Imie", label: "Imię dziecka", section: "Członek rodziny – dziecko", fill: (c) => up(child0(c)?.fullName || child0(c)?.name), read: "childFirst" },
@@ -259,7 +264,176 @@ const ZCNA_FIELDS: OfficialField[] = [
   { name: "Page2.VI01_DataWypelnienia", label: "Data wypełnienia", section: "Oświadczenie", fill: (c) => date8(c.today), read: "signDate" },
 ];
 
-export const OFFICIAL_FIELDS: Partial<Record<OfficialFormId, OfficialField[]>> = { ZAM: ZAM_FIELDS, "ZAS-53": ZAS53_FIELDS, "Z-15": Z15_FIELDS, "Z-12": Z12_FIELDS, ZCNA: ZCNA_FIELDS };
+
+/* ------------------------------ druki płatnika: Z-3, Z-3a, ZUS ZUA ------------------------------ */
+
+const fmtZl = (n?: number) => (n || n === 0 ? n.toFixed(2).replace(".", ",") : "");
+/** 12 pełnych miesięcy przed miesiącem powstania prawa (porodu albo dziś). */
+function last12(c: FormCtx) {
+  const p = applicant(c);
+  const event = (c.d.child.birthDate ?? c.d.child.dueDate ?? c.today).slice(0, 7);
+  return [...p.incomeHistory].filter((m) => m.month < event).sort((a, b) => a.month.localeCompare(b.month)).slice(-12);
+}
+const payerAddr = (c: FormCtx) => payerOf(applicant(c))?.address;
+const payerBlock = (section: string): OfficialField[] => [
+  { name: "Page1.pierwszywniosek", label: "Pierwszy wniosek o świadczenie", section: "Rodzaj zaświadczenia", check: true, fill: () => true },
+  { name: "Page1.wniosekkontynuacja", label: "Wniosek o kontynuację świadczenia", section: "Rodzaj zaświadczenia", check: true },
+  { name: "Page1.NIP", label: "NIP płatnika", section, fill: (c) => payerOf(applicant(c))?.nip, read: "nip" },
+  { name: "Page1.REGON", label: "REGON płatnika", section, fill: (c) => payerOf(applicant(c))?.regon, read: "regon" },
+  { name: "Page1.Nazwaplatnika", label: "Nazwa płatnika", section, fill: (c) => up(payerOf(applicant(c))?.name), read: "payerName" },
+  { name: "Page1.Ulica", label: "Ulica (płatnik)", section, fill: (c) => street(payerAddr(c)) },
+  { name: "Page1.Numerdomu", label: "Numer domu (płatnik)", section, fill: (c) => payerAddr(c)?.house },
+  { name: "Page1.Numerlokalu", label: "Numer lokalu (płatnik)", section, fill: (c) => payerAddr(c)?.flat },
+  { name: "Page1.Kodpocztowy", label: "Kod pocztowy (płatnik)", section, fill: (c) => payerAddr(c)?.postalCode },
+  { name: "Page1.Poczta", label: "Miejscowość (płatnik)", section, fill: (c) => up(payerAddr(c)?.city) },
+  { name: "Page1.Numertelefonu", label: "Telefon płatnika", section, fill: (c) => applicant(c).payer?.phone },
+];
+const insuredBlock = (section: string): OfficialField[] => [
+  { name: "Page1.PESEL2", label: "PESEL", section, fill: (c) => applicant(c).pesel, read: "pesel" },
+  { name: "Page1.Imie", label: "Imię", section, fill: (c) => up(applicant(c).firstName), read: "firstName" },
+  { name: "Page1.Nazwisko", label: "Nazwisko", section, fill: (c) => up(applicant(c).lastName), read: "lastName" },
+  { name: "Page2.Ulica2", label: "Ulica", section, fill: (c) => street(applicant(c).address), read: "street" },
+  { name: "Page2.Numerdomu2", label: "Numer domu", section, fill: (c) => applicant(c).address?.house, read: "house" },
+  { name: "Page2.Numerlokalu2", label: "Numer lokalu", section, fill: (c) => applicant(c).address?.flat },
+  { name: "Page2.Kodpocztowy2", label: "Kod pocztowy", section, fill: (c) => applicant(c).address?.postalCode, read: "postal" },
+  { name: "Page2.Poczta2", label: "Miejscowość", section, fill: (c) => up(applicant(c).address?.city), read: "city" },
+  { name: "Page2.Numerrachunku", label: "Rachunek bankowy", section: "Rachunek bankowy", fill: (c) => applicant(c).bankAccount?.replace(/\D/g, ""), read: "bank" },
+];
+const benefitPeriod = (c: FormCtx) => { const s = segs(c, (k) => k !== "wynagrodzenie_chorobowe" && k !== "chorobowy"); return s.length ? period(s[0].from, s.at(-1)!.to) : undefined; };
+const sickText = (c: FormCtx) => applicant(c).sickLeaves.map((l) => `${period(l.from, l.to)}${l.codeB ? " (B)" : ""}`).join("; ") || undefined;
+const otherParentText = (c: FormCtx) => { const o = other(c); return o ? up(`${o.firstName} ${o.lastName}, PESEL ${o.pesel}`) : undefined; };
+const childFull = (c: FormCtx) => (c.d.child.birthDate ? (c.d.child.kids ?? [{}]).map((k) => [kidName(k, applicant(c).lastName), k.pesel ? `PESEL ${k.pesel}` : "", `UR. ${dDots(c.d.child.birthDate)}`, up(k.birthPlace)].filter(Boolean).join(", ")).join("; ") : undefined);
+
+/** Kolejność wierszy tabeli Z-3 na stronie 4 (numeracja pól w PDF nie idzie z góry na dół). */
+const Z3_ROW_ORDER = [7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5, 6];
+function z3Rows(c: FormCtx): Record<string, string> {
+  const out: Record<string, string> = {};
+  last12(c).forEach((m, row) => {
+    const i = Z3_ROW_ORDER[row];
+    const base = i * 5;
+    out[`Page4.ROK${i ? `[${i}]` : ""}`] = m.month.slice(0, 4);
+    out[`Page4.Miesiac${base ? `[${base}]` : ""}`] = m.month.slice(5, 7);
+    out[`Page4.Miesiac[${base + 1}]`] = String(m.workedDays ?? m.requiredDays ?? 21);
+    out[`Page4.Przepracowal${i ? `[${i}]` : ""}`] = String(m.requiredDays ?? m.workedDays ?? 21);
+    if ((m.workedDays ?? 0) < (m.requiredDays ?? 0)) out[`Page4.Liczbadni${i ? `[${i}]` : ""}`] = "NIEOBECNOŚĆ – UZUPEŁNIJ PRZYCZYNĘ";
+    out[`Page4.Podstawawymiaru${i ? `[${i}]` : ""}`] = fmtZl(m.fixedContract ?? m.gross);
+    out[`Page4.Miesiac[${base + 2}]`] = m.fixedContract && m.gross !== m.fixedContract ? fmtZl(m.gross) : "";
+    out[`Page4.Miesiac[${base + 4}]`] = "13,71";
+  });
+  return out;
+}
+function z3aRows(c: FormCtx): Record<string, string> {
+  const out: Record<string, string> = {};
+  last12(c).forEach((m, i) => {
+    const k = i ? `[${i}]` : "";
+    out[`Page5.ROK${k}`] = m.month.slice(0, 4);
+    out[`Page5.Miesiac${k}`] = m.month.slice(5, 7);
+    if (m.workedDays) out[`Page5.Przepracowal${k}`] = String(m.workedDays);
+    if (m.requiredDays) out[`Page5.Liczbadni${k}`] = String(m.requiredDays);
+    out[`Page5.Podstawawymiaru${k}`] = fmtZl(m.gross);
+  });
+  return out;
+}
+/** Pola tabeli miesięcznej: jedno „wirtualne” pole w podglądzie, rozwijane do kolumn przy wypełnianiu PDF. */
+const tableField = (name: string, rows: (c: FormCtx) => Record<string, string>): OfficialField => ({ name, label: "Wynagrodzenie / przychód z 12 miesięcy (tabela)", section: "Składniki wynagrodzenia (12 mies.)", fill: (c) => Object.keys(rows(c)).length ? JSON.stringify(rows(c)) : undefined });
+
+const Z3_FIELDS: OfficialField[] = [
+  ...payerBlock("Dane płatnika składek"),
+  ...insuredBlock("Dane pracownika"),
+  { name: "Page2._1", label: "zasiłek chorobowy", section: "Pracownik występuje o", check: true, fill: (c) => applicant(c).sickLeaves.length > 0 },
+  { name: "Page2.Tekst", label: "Okres zasiłku chorobowego", section: "Pracownik występuje o", fill: sickText, read: "sickPeriod" },
+  { name: "Page2._3", label: "zasiłek macierzyński", section: "Pracownik występuje o", check: true, fill: (c) => !!benefitPeriod(c) },
+  { name: "Page2.Tekstzm", label: "Okres zasiłku macierzyńskiego", section: "Pracownik występuje o", fill: benefitPeriod, read: "periodMat" },
+  { name: "Page3.UCHpodlega", label: "Okres zatrudnienia (od / od–do)", section: "Informacje o pracowniku", fill: (c) => { const p = applicant(c); return p.contractEndDate ? period(p.insuranceStart, p.contractEndDate) : `OD ${dDots(p.insuranceStart)}`; } },
+  { name: "Page3.UZpodlega", label: "Wymiar czasu pracy", section: "Informacje o pracowniku", fill: (c) => { const f = applicant(c).workTimeFraction; return f === 1 ? "PEŁNY ETAT" : f === 0.5 ? "1/2 ETATU" : f === 0.75 ? "3/4 ETATU" : `${f} ETATU`; } },
+  { name: "Page3.Podajdate", label: "Od kiedy w tym wymiarze", section: "Informacje o pracowniku", fill: (c) => date8(applicant(c).insuranceStart) },
+  { name: "Page3.TAK_2", label: "Umowa o pracę tymczasową – TAK", section: "Informacje o pracowniku", check: true },
+  { name: "Page3.NIE_2", label: "Umowa o pracę tymczasową – NIE", section: "Informacje o pracowniku", check: true, fill: () => true },
+  { name: "Page3.TAK_3", label: "Praca za granicą – TAK", section: "Informacje o pracowniku", check: true },
+  { name: "Page3.NIE_3", label: "Praca za granicą – NIE", section: "Informacje o pracowniku", check: true, fill: () => true },
+  { name: "Page3.TAK_5", label: "Urlop bezpłatny / wychowawczy / areszt w okresie niezdolności – TAK", section: "Informacje o pracowniku", check: true },
+  { name: "Page3.NIE_5", label: "Urlop bezpłatny / wychowawczy / areszt w okresie niezdolności – NIE", section: "Informacje o pracowniku", check: true, fill: () => true },
+  { name: "Page3.A6", label: "Udzielono urlopu macierzyńskiego", section: "Urlopy (zasiłek macierzyński)", check: true, fill: (c) => c.who === "matka" && c.d.child.path === "biologiczny" && segs(c, (k) => k === "macierzynski").length > 0 },
+  { name: "Page3.B6", label: "Udzielono urlopu rodzicielskiego", section: "Urlopy (zasiłek macierzyński)", check: true, fill: (c) => segs(c, (k) => k.startsWith("rodzicielski")).length > 0 },
+  { name: "Page3.C6", label: "Udzielono urlopu na warunkach urlopu macierzyńskiego", section: "Urlopy (zasiłek macierzyński)", check: true, fill: (c) => c.d.child.path !== "biologiczny" && segs(c, (k) => k === "macierzynski").length > 0 },
+  { name: "Page3.D6", label: "Udzielono uzupełniającego urlopu macierzyńskiego", section: "Urlopy (zasiłek macierzyński)", check: true, fill: (c) => segs(c, (k) => k === "uzupelniajacy").length > 0 },
+  { name: "Page3.E6", label: "Udzielono urlopu ojcowskiego", section: "Urlopy (zasiłek macierzyński)", check: true, fill: (c) => c.who === "ojciec" && segs(c, (k) => k === "ojcowski").length > 0 },
+  { name: "Page3.NIE6", label: "NIE – zasiłek po ustaniu zatrudnienia", section: "Urlopy (zasiłek macierzyński)", check: true },
+  { name: "Page3.Tekst6", label: "Okresy urlopów, data wniosku, stawka", section: "Urlopy (zasiłek macierzyński)", fill: (c) => segs(c, (k) => !["wynagrodzenie_chorobowe", "chorobowy"].includes(k)).map((s) => `${up(s.label)}: ${period(s.from, s.to)}, ${Math.round(s.rate * 1000) / 10}%`).join("; ") || undefined },
+  { name: "Page3.Tekst1", label: "Dane dziecka (imię, nazwisko, PESEL, data i miejsce urodzenia)", section: "Urlopy (zasiłek macierzyński)", fill: childFull, read: "childText" },
+  { name: "Page3.Tekst2", label: "Dane drugiego rodzica", section: "Urlopy (zasiłek macierzyński)", fill: otherParentText },
+  { name: "Page4.TAK_7", label: "Praca w czasie urlopu rodzicielskiego – TAK", section: "Informacje o pracowniku", check: true, fill: (c) => c.d.plan.combineWithWork.enabled && c.d.plan.combineWithWork.who === c.who },
+  { name: "Page4.NIE_7", label: "Praca w czasie urlopu rodzicielskiego – NIE", section: "Informacje o pracowniku", check: true, fill: (c) => !(c.d.plan.combineWithWork.enabled && c.d.plan.combineWithWork.who === c.who) },
+  { name: "Page4.Tekst7", label: "Okres i wymiar pracy w czasie urlopu rodzicielskiego", section: "Informacje o pracowniku", fill: (c) => { const w = c.r.segments.find((x) => x.kind === "rodzicielski_praca"); return c.d.plan.combineWithWork.enabled && c.d.plan.combineWithWork.who === c.who && w ? `${period(w.from, w.to)}, ${Math.round(c.d.plan.combineWithWork.fraction * 100)}% ETATU` : undefined; } },
+  { name: "Page4.TAK_PI", label: "Do 20 ubezpieczonych zgłoszonych do ubezpieczenia chorobowego", section: "Pozostałe informacje", check: true, fill: (c) => (applicant(c).payer?.insuredCount ?? 0) <= 20 },
+  { name: "Page4.NIE_PI", label: "Powyżej 20 ubezpieczonych", section: "Pozostałe informacje", check: true, fill: (c) => (applicant(c).payer?.insuredCount ?? 0) > 20 },
+  tableField("@table-z3", z3Rows),
+  { name: "Page6.Data", label: "Data wystawienia", section: "Podpis płatnika", fill: (c) => date8(c.today), read: "signDate" },
+];
+
+const Z3A_TITLE: Record<string, string> = { zlecenie: "Page3.ZaznaczX2", student_zlecenie: "Page3.ZaznaczX2" };
+const Z3A_FIELDS: OfficialField[] = [
+  ...payerBlock("Dane płatnika składek"),
+  ...insuredBlock("Dane ubezpieczonego"),
+  { name: "Page2._1", label: "zasiłek chorobowy", section: "Ubezpieczony występuje o", check: true, fill: (c) => applicant(c).sickLeaves.length > 0 },
+  { name: "Page2.Tekst", label: "Okres zasiłku chorobowego", section: "Ubezpieczony występuje o", fill: sickText, read: "sickPeriod" },
+  { name: "Page2._3", label: "zasiłek macierzyński", section: "Ubezpieczony występuje o", check: true, fill: (c) => !!benefitPeriod(c) },
+  { name: "Page2.Tekstzm", label: "Okres zasiłku macierzyńskiego", section: "Ubezpieczony występuje o", fill: benefitPeriod, read: "periodMat" },
+  { name: "Page2.Data", label: "Data złożenia wniosku o zasiłek macierzyński", section: "Ubezpieczony występuje o", fill: (c) => (benefitPeriod(c) ? date8(c.today) : undefined) },
+  { name: "Page2.Dane_tekst", label: "Dane dziecka (imię, nazwisko, PESEL, data i miejsce urodzenia)", section: "Ubezpieczony występuje o", fill: childFull, read: "childText" },
+  { name: "Page3.dane_2tekst", label: "Dane drugiego rodzica", section: "Ubezpieczony występuje o", fill: otherParentText },
+  { name: "Page3.Informacje1A", label: "Ubezpieczenie chorobowe – TAK", section: "Informacje o ubezpieczeniu", check: true, fill: (c) => applicant(c).voluntarySickness, read: "voluntaryYes" },
+  { name: "Page3.Informacje1B", label: "Ubezpieczenie chorobowe – NIE", section: "Informacje o ubezpieczeniu", check: true, fill: (c) => !applicant(c).voluntarySickness, read: "voluntaryNo" },
+  { name: "Page3.Informacje1C", label: "Ubezpieczenie wypadkowe – TAK", section: "Informacje o ubezpieczeniu", check: true, fill: () => true },
+  { name: "Page3.Informacje1D", label: "Ubezpieczenie wypadkowe – NIE", section: "Informacje o ubezpieczeniu", check: true },
+  ...Array.from({ length: 11 }, (_, i): OfficialField => ({ name: `Page3.ZaznaczX${i + 1}`, label: ["umowa o pracę nakładczą", "umowa agencyjna / zlecenia / o świadczenie usług", "osoba współpracująca", "członek spółdzielni rolniczej", "praca w czasie kary / aresztu", "poseł lub senator", "stypendium sportowe", "słuchacz KSAP", "stypendium stażowe (urząd pracy)", "służba zastępcza", "umowa uaktywniająca / doktorant"][i], section: "Tytuł ubezpieczenia", check: true, fill: (c) => Z3A_TITLE[applicant(c).title] === `Page3.ZaznaczX${i + 1}` })),
+  { name: "Page3.UCHpodlega", label: "Ubezpieczeniu chorobowemu podlega (od / od–do)", section: "Informacje o ubezpieczonym", fill: (c) => (applicant(c).voluntarySickness ? (applicant(c).contractEndDate ? period(applicant(c).insuranceStart, applicant(c).contractEndDate) : `OD ${dDots(applicant(c).insuranceStart)}`) : undefined) },
+  { name: "Page3.UZpodlega", label: "Ubezpieczeniu wypadkowemu podlega (od / od–do)", section: "Informacje o ubezpieczonym", fill: (c) => `OD ${dDots(applicant(c).insuranceStart)}` },
+  { name: "Page3.Informacje3TAK", label: "Tytuł ubezpieczenia ustał – TAK", section: "Informacje o ubezpieczonym", check: true, fill: (c) => !!applicant(c).contractEndDate && applicant(c).contractEndDate! < c.today },
+  { name: "Page3.Informacje3NIE", label: "Tytuł ubezpieczenia ustał – NIE", section: "Informacje o ubezpieczonym", check: true, fill: (c) => !(applicant(c).contractEndDate && applicant(c).contractEndDate! < c.today) },
+  { name: "Page3.Data3", label: "Data ustania tytułu", section: "Informacje o ubezpieczonym", fill: (c) => (applicant(c).contractEndDate && applicant(c).contractEndDate! < c.today ? date8(applicant(c).contractEndDate) : undefined) },
+  { name: "Page4.Informacje5TAK", label: "Urlop bezpłatny / wychowawczy / areszt – TAK", section: "Informacje o ubezpieczonym", check: true },
+  { name: "Page4.Informacje5NIE", label: "Urlop bezpłatny / wychowawczy / areszt – NIE", section: "Informacje o ubezpieczonym", check: true, fill: () => true },
+  { name: "Page4.PozostaleA", label: "Do 20 ubezpieczonych zgłoszonych do ubezpieczenia chorobowego", section: "Pozostałe informacje", check: true, fill: (c) => (applicant(c).payer?.insuredCount ?? 0) <= 20 },
+  { name: "Page4.PozostaleB", label: "Powyżej 20 ubezpieczonych", section: "Pozostałe informacje", check: true, fill: (c) => (applicant(c).payer?.insuredCount ?? 0) > 20 },
+  tableField("@table-z3a", z3aRows),
+  { name: "Page5.Data", label: "Data wystawienia", section: "Podpis płatnika", fill: (c) => date8(c.today), read: "signDate" },
+];
+
+const NFZ_BY_CITY: Record<string, string> = { Wrocław: "01R", Toruń: "02R", Lublin: "03R", Łódź: "05R", Kraków: "06R", Warszawa: "07R", Rzeszów: "09R", Białystok: "10R", Gdańsk: "11R", Katowice: "12R", Olsztyn: "14R", Poznań: "15R" };
+const ZUA_TITLE: Partial<Record<string, string>> = { uop: "01 10", zlecenie: "04 11", jdg: "05 10", jdg_preferencyjna: "05 70", maly_zus_plus: "05 90" };
+const ZUA_FIELDS: OfficialField[] = [
+  { name: "Page1.I02zgloszenie", label: "Rodzaj: 1 – zgłoszenie, 2 – zmiana danych", section: "Zgłoszenie", select: true, fill: () => "1" },
+  { name: "Page1.II01_NrNIP", label: "NIP płatnika", section: "Dane płatnika", fill: (c) => payerOf(applicant(c))?.nip, read: "nip" },
+  { name: "Page1.II02_NrREGON", label: "REGON płatnika", section: "Dane płatnika", fill: (c) => payerOf(applicant(c))?.regon, read: "regon" },
+  { name: "Page1.II06_NazwaSkrocona", label: "Nazwa skrócona płatnika", section: "Dane płatnika", fill: (c) => up(payerOf(applicant(c))?.name).slice(0, 31), read: "payerName" },
+  { name: "Page1.III01_NrPESEL", label: "PESEL", section: "Osoba zgłaszana", fill: (c) => applicant(c).pesel, read: "pesel" },
+  { name: "Page1.III05_Nazwisko", label: "Nazwisko", section: "Osoba zgłaszana", fill: (c) => up(applicant(c).lastName), read: "lastName" },
+  { name: "Page1.III06_Imie", label: "Imię", section: "Osoba zgłaszana", fill: (c) => up(applicant(c).firstName), read: "firstName" },
+  { name: "Page1.III07_DataUrodzenia", label: "Data urodzenia", section: "Osoba zgłaszana", fill: (c) => date8(applicant(c).birthDate) },
+  { name: "Page1.IV04_PLEC", label: "Płeć", section: "Osoba zgłaszana", select: true, fill: (c) => (c.who === "ojciec" ? "M" : "K") },
+  { name: "Page1.V01a", label: "Kod tytułu ubezpieczenia", section: "Tytuł ubezpieczenia", select: true, fill: (c) => ZUA_TITLE[applicant(c).title] },
+  { name: "Page1.V01b", label: "Prawo do emerytury lub renty", section: "Tytuł ubezpieczenia", select: true, fill: () => "0" },
+  { name: "Page1.V01c", label: "Stopień niepełnosprawności", section: "Tytuł ubezpieczenia", select: true, fill: () => "0" },
+  { name: "Page1.VI01_DataPowstania", label: "Data powstania obowiązku ubezpieczeń społecznych", section: "Ubezpieczenia społeczne", fill: (c) => date8(applicant(c).insuranceStart) },
+  { name: "Page1.VI02", label: "Ubezpieczenie emerytalne", section: "Ubezpieczenia społeczne", check: true, fill: () => true },
+  { name: "Page1.VI03", label: "Ubezpieczenie rentowe", section: "Ubezpieczenia społeczne", check: true, fill: () => true },
+  { name: "Page1.VI04", label: "Ubezpieczenie chorobowe", section: "Ubezpieczenia społeczne", check: true, fill: (c) => applicant(c).title === "uop" || applicant(c).voluntarySickness, read: "voluntaryYes" },
+  { name: "Page1.VI05", label: "Ubezpieczenie wypadkowe", section: "Ubezpieczenia społeczne", check: true, fill: () => true },
+  { name: "Page1.VII01_DataPowstania", label: "Data powstania obowiązku ubezpieczenia zdrowotnego", section: "Ubezpieczenie zdrowotne", fill: (c) => date8(applicant(c).insuranceStart) },
+  { name: "Page1.VII02", label: "Oddział NFZ", section: "Ubezpieczenie zdrowotne", select: true, fill: (c) => NFZ_BY_CITY[applicant(c).address?.city ?? ""] },
+  { name: "Page2.XI01_kodpocztowy", label: "Kod pocztowy (zamieszkanie)", section: "Adres zamieszkania", fill: (c) => applicant(c).address?.postalCode?.replace("-", ""), read: "postal" },
+  { name: "Page2.XI02_miejscowosc", label: "Miejscowość", section: "Adres zamieszkania", fill: (c) => up(applicant(c).address?.city), read: "city" },
+  { name: "Page2.XI03_gmina", label: "Gmina / dzielnica", section: "Adres zamieszkania", fill: (c) => up(applicant(c).address?.commune ?? applicant(c).address?.city) },
+  { name: "Page2.XI04_ulica", label: "Ulica", section: "Adres zamieszkania", fill: (c) => street(applicant(c).address), read: "street" },
+  { name: "Page2.XI05_nrdomu", label: "Numer domu", section: "Adres zamieszkania", fill: (c) => applicant(c).address?.house, read: "house" },
+  { name: "Page2.XI06_nrlokalu", label: "Numer lokalu", section: "Adres zamieszkania", fill: (c) => applicant(c).address?.flat },
+  { name: "Page2.XI07_nrtelefonu", label: "Telefon", section: "Adres zamieszkania", fill: (c) => applicant(c).phone?.replace(/\s/g, "") },
+  { name: "Page2.XIII09_mail", label: "E-mail", section: "Adres do korespondencji", fill: (c) => applicant(c).email },
+  { name: "Page2.XIV01_DataWypelnienia", label: "Data wypełnienia", section: "Oświadczenie", fill: (c) => date8(c.today), read: "signDate" },
+];
+
+export const OFFICIAL_FIELDS: Partial<Record<OfficialFormId, OfficialField[]>> = { ZAM: ZAM_FIELDS, "ZAS-53": ZAS53_FIELDS, "Z-15": Z15_FIELDS, "Z-12": Z12_FIELDS, ZCNA: ZCNA_FIELDS, "Z-3": Z3_FIELDS, "Z-3a": Z3A_FIELDS, ZUA: ZUA_FIELDS };
 
 /* ------------------------------ wykluczające się zaznaczenia ------------------------------ */
 
@@ -299,8 +473,18 @@ export const EXCLUSIVE: Partial<Record<OfficialFormId, { label: string; items: G
     { label: "Adres – zamieszkania albo do korespondencji (s. 4)", items: ["Page4.Zamieszkania", "Page4.Dokorespondencji"] },
     { label: "Adres – zamieszkania albo do korespondencji (s. 5)", items: ["Page5.Zamieszkania", "Page5.Dokorespondencji"] },
   ],
-  "Z-3": [{ label: "Pierwszy wniosek albo kontynuacja", items: ["Page1.pierwszywniosek", "Page1.wniosekkontynuacja"] }],
-  "Z-3a": [{ label: "Pierwszy wniosek albo kontynuacja", items: ["Page1.pierwszywniosek", "Page1.wniosekkontynuacja"] }],
+  "Z-3": [
+    { label: "Pierwszy wniosek albo kontynuacja", items: ["Page1.pierwszywniosek", "Page1.wniosekkontynuacja"] },
+    { label: "Udzielone urlopy – „NIE (po ustaniu zatrudnienia)” wyklucza pozostałe", items: [["Page3.A6", "Page3.B6", "Page3.C6", "Page3.D6", "Page3.E6"], "Page3.NIE6"] },
+    { label: "Urlop macierzyński albo urlop na warunkach urlopu macierzyńskiego", items: ["Page3.A6", "Page3.C6"] },
+    { label: "Liczba ubezpieczonych – do 20 albo powyżej 20", items: ["Page4.TAK_PI", "Page4.NIE_PI"] },
+  ],
+  "Z-3a": [
+    { label: "Pierwszy wniosek albo kontynuacja", items: ["Page1.pierwszywniosek", "Page1.wniosekkontynuacja"] },
+    { label: "Ubezpieczenie chorobowe (TAK / NIE)", items: ["Page3.Informacje1A", "Page3.Informacje1B"] },
+    { label: "Ubezpieczenie wypadkowe (TAK / NIE)", items: ["Page3.Informacje1C", "Page3.Informacje1D"] },
+    { label: "Liczba ubezpieczonych – do 20 albo powyżej 20", items: ["Page4.PozostaleA", "Page4.PozostaleB"] },
+  ],
 };
 
 /**
@@ -376,7 +560,9 @@ export function fillValues(form: OfficialFormId, c: FormCtx): Record<string, Fie
   for (const f of OFFICIAL_FIELDS[form] ?? []) {
     const v = f.fill?.(c);
     if (v === undefined || v === null || v === "") continue;
-    out[f.name] = f.check ? Boolean(v) : String(v);
+    // tabela miesięczna (Z-3 / Z-3a): rozwijana do komórek druku
+    if (f.name.startsWith("@table")) Object.assign(out, JSON.parse(String(v)));
+    else out[f.name] = f.check ? Boolean(v) : String(v);
   }
   return out;
 }
@@ -458,4 +644,18 @@ export function applyFormFields(doc: Record<string, unknown> & { insured: Record
   if (form === "ZAM" && doc.child.zaZyciem == null) doc.child.zaZyciem = false;
   if (addr.length) put("insured.address", addr.join(" "));
   return set;
+}
+
+const sfx = (i: number) => (i ? `[${i}]` : "");
+/** Komórki tabeli miesięcznej: widoczna kolumna kwoty z etykietą „MM/RRRR”, pozostałe (rok, miesiąc, dni, % składki) ukryte. */
+export function tableCells(vals: Record<string, FieldValue>, known: Set<string>): { key: string; label: string; hidden: boolean }[] {
+  return Object.keys(vals)
+    .filter((k) => !known.has(k) && /^Page[45]\.(ROK|Miesiac|Przepracowal|Liczbadni|Podstawawymiaru)/.test(k))
+    .map((k) => {
+      const m = /^(Page[45])\.Podstawawymiaru(?:\[(\d+)\])?$/.exec(k);
+      if (!m) return { key: k, label: k, hidden: true };
+      const i = Number(m[2] ?? 0);
+      const month = vals[`${m[1]}.Miesiac${sfx(m[1] === "Page4" ? i * 5 : i)}`];
+      return { key: k, label: `Wynagrodzenie / przychód – ${month}/${vals[`${m[1]}.ROK${sfx(i)}`]}`, hidden: false };
+    });
 }

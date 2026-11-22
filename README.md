@@ -75,10 +75,25 @@ cp .env.example .env.local   # ustaw ANTHROPIC_API_KEY
 
 Logo zawsze renderujemy z zablokowanymi proporcjami (`aspect-square` + `object-contain`; logo ZUS: `h-* w-auto`).
 
-## Wzory formularzy
+## Oficjalne druki ZUS: konwerter PDF → JSON, formuły sprawdzania, wstępne wypełnienie
 
-PDF-y ze strony zus.pl wrzucamy do `public/formularze` (nazwy w `public/formularze/README.md`). API `GET /api/forms`
-wykrywa je automatycznie, a panel sprawy pokazuje przyciski „Pusty wzór” i „Przykład wypełnienia”.
+W `public/formularze` są **edytowalne wersje „Wypełnij i wydrukuj” z zus.pl** (ZAM, ZAS-53, Z-15, Z-12, ZUS ZCNA, Z-3, Z-3a, ZUS ZUA).
+Od 24.10.2026 r. druk **Z-15 zastąpił Z-15A i Z-15B**. Opis pól każdego druku (nazwa pola AcroForm, etykieta, sekcja, skąd brać
+wartość, jak ją odczytać) jest w jednym miejscu: `src/data/official-forms.ts`. Na tej podstawie działają trzy funkcje:
+
+| Funkcja | Moduł | REST | Co robi |
+|---|---|---|---|
+| **Wstępne wypełnienie** (potok 1) | `fillValues()` w `data/official-forms.ts`, `lib/official-pdf.ts`, `services/forms/prefill.ts` | `POST /api/forms/prefill` `{ form, profile \| input \| values, who?, format: "json" \| "pdf" }` | Dane z mObywatela/ZUS (symulacja) + wynik silnika → wartości pól oryginalnego druku → edytowalny PDF. W aplikacji: *Wnioski → wniosek → „Podgląd wniosku” → „Edytuj przed pobraniem” → „Pobierz wypełniony PDF”*. |
+| **Konwerter PDF → JSON** (potok 2) | `services/forms/convert.ts` (`pdfToJson`) | `POST /api/forms/convert` (multipart `file`) | Edytowalny druk → rozpoznany formularz, pola z etykietami i wartościami, ustandaryzowany dokument (wejście do silnika). |
+| **Formuły sprawdzania** | `services/forms/check.ts` (`checkForm`) | `POST /api/forms/check` `{ form, values }` | Sumy kontrolne (PESEL, NIP, REGON, NRB – IBAN mod 97, dowód osobisty), poprawne daty dd/mm/rrrr, kod pocztowy, pola wymagane, **wykluczające się zaznaczenia** (np. TAK i NIE, „urodzenie dziecka” i „przewidywana data porodu”), zależności „zaznaczone X ⇒ wypełnij Y”. |
+
+Druk wgrany w *Sprawdź dokument* przechodzi przez konwerter i formuły sprawdzania, a karta „Porównanie z danymi w aplikacji”
+pokazuje pole po polu różnice między drukiem użytkownika a drukiem, który aplikacja wypełniłaby sama.
+`GET /api/forms` zwraca listę druków z linkiem do strony konkretnego formularza na zus.pl. Testy: `tests/forms.test.ts`
+(wypełnienie wszystkich druków dla 100 rodzin bez błędów, PDF → JSON bez strat, wykrywanie błędów).
+
+**Wnioski urlopowe do pracodawcy** nie mają urzędowego druku – aplikacja generuje je wg rozporządzenia MRPiPS z 11.03.2025.
+**800+** składa się wyłącznie elektronicznie – aplikacja przygotowuje komplet danych do wniosku.
 
 ## Potok analizy dokumentu (tylko dokumentacja – usunięty z UI)
 
@@ -136,6 +151,10 @@ gotowy do przeniesienia do osobnej usługi. Konfiguracja: plik JSON (`.data/`) �
 | POST | `/api/integrations/submit` | symulacja wysyłki wniosku + estymacja czasu |
 | POST | `/api/integrations/status` | symulacja pobrania statusów spraw z ZUS |
 | GET | `/api/profiles`, `/api/health` | profile testowe, status |
+| GET | `/api/forms` | oficjalne druki ZUS (plik, link do zus.pl, liczba pól) |
+| POST | `/api/forms/prefill` | wstępne wypełnienie druku – JSON albo edytowalny PDF |
+| POST | `/api/forms/convert` | konwerter PDF → JSON (pola druku + ustandaryzowany dokument + formuły sprawdzania) |
+| POST | `/api/forms/check` | formuły sprawdzania wartości pól druku |
 
 ## ⚡ Funkcje wspierane przez AI (wymóg regulaminu)
 
@@ -153,6 +172,9 @@ AI (model Claude, `claude-opus-5-5`) jest używane **wyłącznie** w dwóch miej
 - pytanie użytkownika opakowane w `<pytanie_uzytkownika>` i traktowane jako dane; nadrzędne zasady w promptcie systemowym;
 - filtr odpowiedzi (tylko linki zus.pl / gov.pl / ISAP, tylko wewnętrzne skróty z białej listy);
 - dane osobowe ukrywane przed wysłaniem do modelu; zgoda na AI do wyłączenia w *Ustawienia → Konto*.
+
+**Region przetwarzania:** funkcje serwerowe działają w regionie Vercel **fra1 (Frankfurt)** – `vercel.json`. Dokumenty są
+przetwarzane w pamięci i nie są zapisywane. Edytowalne druki ZUS są odczytywane bez AI (pola formularza).
 
 **AI nigdy nie liczy kwot ani nie rozstrzyga o uprawnieniach** – robi to `services/engine` (pokryty testami).
 Pozostałe funkcje (kalkulator, walidator, routing płatnika, terminy, Centrum alertów, panel admina) są w 100% deterministyczne.

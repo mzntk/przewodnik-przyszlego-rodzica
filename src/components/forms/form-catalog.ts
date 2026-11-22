@@ -7,7 +7,7 @@ import { childLine } from "@/lib/child";
 import type { CalculationResult } from "@/models/types";
 import type { CaseData } from "@/store/app";
 import { dPL } from "@/lib/utils";
-import { OFFICIAL_FIELDS, fillValues, todayIso, type FieldValue, type OfficialFormId } from "@/data/official-forms";
+import { OFFICIAL_FIELDS, fillValues, tableCells, todayIso, type FieldValue, type OfficialFormId } from "@/data/official-forms";
 
 export interface FormField {
   key: string;
@@ -20,6 +20,8 @@ export interface FormField {
   check?: boolean;
   /** pole wymagane – liczone jako brak, gdy puste */
   required?: boolean;
+  /** komórka druku wypełniana automatycznie, niewidoczna w podglądzie (np. rok/miesiąc w tabeli Z-3) */
+  hidden?: boolean;
 }
 
 /** Pola, bez których ZUS wezwie do uzupełnienia (dane identyfikacyjne, adres, płatnik). */
@@ -28,7 +30,11 @@ const REQUIRED_READS = new Set(["pesel", "firstName", "lastName", "street", "hou
 /** Pola oficjalnego druku ZUS wypełnione danymi z aplikacji (potok 1). */
 export function officialFields(id: OfficialFormId, d: CaseData, r: CalculationResult, who: "matka" | "ojciec"): FormField[] {
   const vals = fillValues(id, { d, r, who, today: todayIso() });
-  return (OFFICIAL_FIELDS[id] ?? []).map((f) => ({ key: f.name, label: f.label, section: f.section, check: f.check, value: f.check ? Boolean(vals[f.name]) : String(vals[f.name] ?? ""), required: !!f.read && REQUIRED_READS.has(f.read) }));
+  const defs = OFFICIAL_FIELDS[id] ?? [];
+  const out: FormField[] = defs.filter((f) => !f.name.startsWith("@table")).map((f) => ({ key: f.name, label: f.label, section: f.section, check: f.check, value: f.check ? Boolean(vals[f.name]) : String(vals[f.name] ?? ""), required: !!f.read && REQUIRED_READS.has(f.read) }));
+  const table = defs.find((f) => f.name.startsWith("@table"));
+  if (table) for (const cell of tableCells(vals, new Set(defs.map((f) => f.name)))) out.push({ key: cell.key, label: cell.label, section: table.section, value: String(vals[cell.key] ?? ""), hidden: cell.hidden });
+  return out;
 }
 
 export interface FormDef {
@@ -236,6 +242,65 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       fields: officialFields("ZCNA", d, r, zcnaWho),
       attachments: [],
       relevant: bio && !!d.child.birthDate,
+    },
+    {
+      id: "z3",
+      code: "Z-3",
+      title: "Zaświadczenie płatnika składek Z-3 – przygotowane dla pracodawcy",
+      target: "ZUS",
+      legal: "art. 61 i 67 ustawy zasiłkowej; Załącznik 2 rozporządzenia z 27.09.2026",
+      when: "Pracodawca wysyła do ZUS razem z Twoim wnioskiem – przekaż mu wstępnie wypełniony druk",
+      official: "Z-3",
+      fields: officialFields("Z-3", d, r, "matka"),
+      attachments: [],
+      relevant: employee && payerZus,
+    },
+    {
+      id: "z3a",
+      code: "Z-3a",
+      title: "Zaświadczenie płatnika składek Z-3a – przygotowane dla zleceniodawcy",
+      target: "ZUS",
+      legal: "art. 61 i 67 ustawy zasiłkowej; Załącznik 3 rozporządzenia z 27.09.2026",
+      when: "Zleceniodawca wysyła do ZUS razem z Twoim ZAM",
+      official: "Z-3a",
+      fields: officialFields("Z-3a", d, r, "matka"),
+      attachments: [],
+      relevant: m.title === "zlecenie" && payerZus,
+    },
+    {
+      id: "zua",
+      code: "ZUS ZUA",
+      title: "Zgłoszenie do ubezpieczeń ZUS ZUA (z dobrowolnym chorobowym)",
+      target: "ZUS",
+      legal: "art. 11 ust. 2 i art. 36 ustawy o systemie ubezpieczeń społecznych",
+      when: "Przed porodem – ubezpieczenie chorobowe musi trwać w dniu porodu (przy działalności: 90 dni wcześniej)",
+      official: "ZUA",
+      fields: officialFields("ZUA", d, r, "matka"),
+      attachments: [],
+      relevant: !employee,
+    },
+    {
+      id: "800plus",
+      code: "SW-1",
+      title: "Wniosek o świadczenie wychowawcze 800+ (składany elektronicznie)",
+      target: "ZUS",
+      legal: "ustawa z 11.02.2016 o pomocy państwa w wychowywaniu dzieci, art. 13",
+      when: "Do 3 miesięcy od urodzenia – wtedy z wyrównaniem od miesiąca urodzenia",
+      fields: [
+        { key: "w-name", label: "Imię i nazwisko wnioskodawcy", value: name, section: "Wnioskodawca", required: true },
+        { key: "w-pesel", label: "PESEL", value: m.pesel, section: "Wnioskodawca", required: true },
+        { key: "w-citizen", label: "Obywatelstwo", value: "polskie", section: "Wnioskodawca" },
+        { key: "w-addr", label: "Adres zamieszkania", value: m.address ? `${m.address.street} ${m.address.house}${m.address.flat ? "/" + m.address.flat : ""}, ${m.address.postalCode} ${m.address.city}` : "", section: "Wnioskodawca", required: true },
+        { key: "w-contact", label: "Telefon i e-mail", value: [m.phone, m.email].filter(Boolean).join(", "), section: "Wnioskodawca" },
+        { key: "w-bank", label: "Numer rachunku do wypłaty", value: m.bankAccount ?? "", section: "Wnioskodawca", required: true },
+        { key: "c-data", label: "Dziecko (imię, nazwisko, PESEL, data urodzenia)", value: d.child.birthDate ? childLine(d.child, m.lastName) : "", section: "Dziecko / dzieci", required: true },
+        { key: "c-live", label: "Dziecko mieszka z wnioskodawcą", value: "TAK", section: "Dziecko / dzieci" },
+        { key: "p-data", label: "Drugi rodzic (imię, nazwisko, PESEL)", value: f ? `${fname}, PESEL ${f.pesel}` : "", section: "Drugi rodzic" },
+        { key: "period", label: "Okres świadczeniowy", value: d.child.birthDate ? `od ${dPL(d.child.birthDate.slice(0, 8) + "01")} do 31.05.${Number(d.child.birthDate.slice(0, 4)) + (d.child.birthDate.slice(5, 7) > "05" ? 1 : 0)}` : "", section: "Okres" },
+      ],
+      statements: ["Dane we wniosku są zgodne z prawdą (odpowiedzialność karna za fałszywe oświadczenia)", "Nie pobieram świadczeń na dziecko w innym państwie UE/EOG"],
+      attachments: [],
+      relevant: !d.child.stillbirth && !d.child.childDeathDate,
     },
     {
       id: "usc",

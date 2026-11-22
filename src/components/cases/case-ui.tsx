@@ -12,6 +12,7 @@ import { FORM_ID, listCases, guideContext, type CaseItem } from "@/lib/cases";
 import { buildForms, type FormField } from "@/components/forms/form-catalog";
 import { EXCLUSIVE, OFFICIAL_FORMS, OFFICIAL_FOR_DOC, findConflicts, type FieldValue, type OfficialFormId } from "@/data/official-forms";
 import { fillOfficialPdf } from "@/lib/official-pdf";
+import { checkForm } from "@/services/forms/check";
 import { buildFormPdf, downloadBytes } from "@/lib/pdf";
 import { Sheet } from "@/components/ui/sheet";
 import { Badge, LegalChip } from "@/components/ui/badge";
@@ -117,7 +118,7 @@ function toggleExclusive(form: OfficialFormId | undefined, values: Record<string
 
 /** Kartka „wypełnionego druku” – podgląd z możliwością poprawienia każdego pola przed pobraniem. */
 function PaperPreview({ code, title, addressee, fields, values, onChange, statements, attachments, signer, place, editing, official }: { code: string; title: string; addressee: string; fields: FormField[]; values: Record<string, FieldValue>; onChange: (next: Record<string, FieldValue>) => void; statements?: string[]; attachments: string[]; signer: string; place: string; editing: boolean; official?: OfficialFormId }) {
-  const sections = [...new Set(fields.map((f) => f.section ?? ""))];
+  const sections = [...new Set(fields.filter((f) => !f.hidden).map((f) => f.section ?? ""))];
   return (
     <div className="overflow-hidden rounded-lg border border-line-strong bg-white shadow-card">
       <div className="flex items-center justify-between gap-2 border-b-2 border-brand px-4 py-3 sm:px-6">
@@ -132,7 +133,7 @@ function PaperPreview({ code, title, addressee, fields, values, onChange, statem
           Adresat: <b className="text-fg-2">{addressee}</b>
         </div>
         {sections.map((sec) => {
-          const fs = fields.filter((f) => (f.section ?? "") === sec);
+          const fs = fields.filter((f) => (f.section ?? "") === sec && !f.hidden);
           const filled = fs.some((f) => (f.check ? values[f.key] === true : String(values[f.key] ?? "").trim()));
           if (official && !filled && !editing) return null;
           return (
@@ -219,6 +220,7 @@ export function CaseSheet() {
   const fieldValues: Record<string, FieldValue> = form ? Object.fromEntries(form.fields.map((f) => [f.key, values[f.key] ?? f.value])) : {};
   const missing = form ? form.fields.filter((f) => !f.check && (f.required || !form.official) && !String(fieldValues[f.key] ?? "").trim()).length : 0;
   const conflicts = form?.official ? findConflicts(form.official, fieldValues) : [];
+  const formCheck = form?.official ? checkForm(form.official, fieldValues) : null;
   const officialMeta = g ? OFFICIAL_FORMS[OFFICIAL_FOR_DOC[g.id]] : undefined;
   const mine = !!(g && result && listCases(data, result).some((c) => c.guide.id === g.id));
   const canSend = mine && g && g.owner !== "płatnik" && (st === "niezlozony" || st === "uzupelnienie") && (account !== "tata" || g.owner === "tata" || g.to === "USC");
@@ -231,6 +233,7 @@ export function CaseSheet() {
   async function exportPdf() {
     if (!form || !g) return;
     if (conflicts.length) return void toast.error("Zaznaczono wykluczające się pola", { description: conflicts.map((c) => c.label).join("; ") });
+    if (formCheck && !formCheck.ok) toast.warning("Druk ma błędy do poprawy", { description: formCheck.errors.map((e) => e.message).slice(0, 3).join("; ") });
     const bytes = form.official
       ? await fillOfficialPdf(OFFICIAL_FORMS[form.official].file, fieldValues)
       : await buildFormPdf({ code: g.code, title: form.title, addressee, legal: g.legal, fields: form.fields.map((f) => ({ label: f.label, value: String(fieldValues[f.key] ?? "") })), attachments, statements: form.statements, signer, place, date: dPL(new Date().toISOString().slice(0, 10)) });
@@ -374,11 +377,18 @@ export function CaseSheet() {
                   {editing ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />} {editing ? "Gotowe" : "Edytuj przed pobraniem"}
                 </Button>
               </div>
-              {conflicts.length > 0 && (
-                <div className="rounded-xl bg-red-soft px-4 py-3 text-[14px] text-red">
-                  <b>Wykluczające się zaznaczenia:</b> {conflicts.map((c) => c.label).join("; ")}
+              {formCheck && (formCheck.errors.length > 0 || formCheck.warnings.length > 0) ? (
+                <div className="space-y-1 rounded-xl bg-red-soft px-4 py-3 text-[14px] text-red">
+                  <b>Sprawdzenie druku – do poprawy:</b>
+                  <ul className="list-disc pl-5">
+                    {[...formCheck.errors, ...formCheck.warnings].map((i) => (
+                      <li key={i.field + i.message} className={i.severity === "warning" ? "text-orange" : ""}>{i.message}</li>
+                    ))}
+                  </ul>
                 </div>
-              )}
+              ) : formCheck ? (
+                <p className="rounded-xl bg-green-soft px-4 py-2 text-[14px] text-green">✓ Sprawdzono {formCheck.checked} reguł (sumy kontrolne PESEL/NIP/REGON/rachunku, daty, wykluczające się zaznaczenia, zależności) – bez błędów.</p>
+              ) : null}
               <PaperPreview code={g.code} title={form.title} addressee={addressee} fields={form.fields} values={fieldValues} onChange={setValues} statements={form.statements} attachments={attachments} signer={signer} place={place} editing={editing} official={form.official} />
               {form.official && <p className="text-[13px] text-muted">Pobierzesz oryginalny, edytowalny druk {g.code} z zus.pl z wpisanymi danymi – możesz go jeszcze poprawić w Adobe Reader. Po wydrukowaniu podpisz go (albo złóż przez PUE/eZUS).</p>}
               {Object.keys(values).length > 0 && (

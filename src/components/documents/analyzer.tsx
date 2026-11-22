@@ -46,8 +46,10 @@ export function Analyzer() {
   const [evalDocs, setEvalDocs] = useState<DocItem[]>([]);
   const recalcTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const router = useRouter();
-  const { setData, aiConsent } = useApp();
+  const { setData, aiConsent, data, loggedIn } = useApp();
   const useAi = aiToggle && aiConsent;
+  /** dane rodziny z aplikacji – serwer dopasuje je do dokumentów po PESEL i porówna */
+  const profile = loggedIn ? data : undefined;
 
   useEffect(() => {
     fetch("/api/documents/samples").then((r) => r.json()).then((j) => {
@@ -60,7 +62,7 @@ export function Analyzer() {
     const done = items.filter((d) => d.status === "done" && d.res);
     setEvalDocs(done);
     if (!done.length) return (setEv(null), setDraft(null));
-    const r = await fetch("/api/documents/evaluate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ documents: done.map((d) => d.res!.document) }) });
+    const r = await fetch("/api/documents/evaluate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ documents: done.map((d) => d.res!.document), profile }) });
     const j = (await r.json()) as CaseEvaluation & { error?: string };
     if (!r.ok) return void toast.error("Nie udało się ocenić sprawy", { description: j.error });
     setEv(j);
@@ -133,7 +135,7 @@ export function Analyzer() {
     clearTimeout(recalcTimer.current);
     setRecalc(true);
     recalcTimer.current = setTimeout(async () => {
-      const r = await fetch("/api/documents/evaluate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ document: next, fieldFrom: ev.fieldFrom }) });
+      const r = await fetch("/api/documents/evaluate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ document: next, fieldFrom: ev.fieldFrom, profile }) });
       if (r.ok) {
         const j = (await r.json()) as CaseEvaluation;
         setEv({ ...j, issues: cross });
@@ -152,6 +154,7 @@ export function Analyzer() {
     if (v === null || v === undefined || v === "" || (Array.isArray(v) && !v.length)) return { label: "brak", tone: "missing" };
     const ds = evalDocs;
     const idx = ev?.fieldFrom[path] ?? (ds.length === 1 ? 0 : undefined);
+    if (idx === -1) return { label: "z aplikacji", tone: "app" };
     const d = idx !== undefined ? ds[idx]?.res : undefined;
     if (!d) return { label: "z dokumentów", tone: "doc" };
     const ai = d.fieldSources[path] === "ai";
@@ -269,7 +272,7 @@ export function Analyzer() {
         <AnimatePresence>
           {ev && draft && !pending && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-              <VerdictCard ev={ev} recalc={recalc} edited={edited.size > 0} onLoad={loadToProfile} onJson={() => setJsonOpen(true)} />
+              <VerdictCard ev={ev} recalc={recalc} edited={edited.size > 0} onLoad={loadToProfile} onJson={() => setJsonOpen(true)} loggedIn={loggedIn} />
               <IssuesCard docs={evalDocs} cross={cross} />
               {evalDocs.map((d) => d.res?.officialForm && <FormCompare key={d.key} res={d.res} />)}
               <CaseDataEditor doc={draft} onChange={change} sourceOf={sourceOf} edited={edited.size > 0} onReset={resetEdits} />
@@ -343,8 +346,9 @@ function Folder({ docs, busy, onRemove, onAdd, onClear }: { docs: DocItem[]; bus
   );
 }
 
-function VerdictCard({ ev, recalc, edited, onLoad, onJson }: { ev: CaseEvaluation; recalc: boolean; edited: boolean; onLoad: () => void; onJson: () => void }) {
+function VerdictCard({ ev, recalc, edited, onLoad, onJson, loggedIn }: { ev: CaseEvaluation; recalc: boolean; edited: boolean; onLoad: () => void; onJson: () => void; loggedIn: boolean }) {
   const v = ev.verdict;
+  const fromApp = Object.values(ev.fieldFrom).filter((i) => i === -1).length;
   const [howOpen, setHowOpen] = useState(false);
   return (
     <Card className={cn("relative overflow-hidden transition-opacity", recalc && "opacity-70", v.insured ? "border-[color-mix(in_oklab,var(--green)_35%,transparent)]" : "border-[color-mix(in_oklab,var(--red)_35%,transparent)]")}>
@@ -362,6 +366,15 @@ function VerdictCard({ ev, recalc, edited, onLoad, onJson }: { ev: CaseEvaluatio
         <div className="mt-3 flex flex-wrap gap-1.5">
           <LegalChip>{v.legalBasis}</LegalChip>
         </div>
+        <p className={cn("mt-3 rounded-xl px-3 py-2 text-[14px]", ev.profileMatch ? "bg-blue-soft text-blue" : ev.profileMatch === null ? "bg-orange-soft text-orange" : "bg-surface-2 text-fg-2")}>
+          {ev.profileMatch
+            ? `Dokumenty dotyczą ${ev.profileMatch === "ojciec" ? "taty" : "mamy"} z Twojego profilu – wynik liczymy na Twoich danych z aplikacji z wartościami z dokumentów${fromApp ? `; ${fromApp} brakujących w dokumentach informacji uzupełniliśmy z aplikacji (oznaczone „z aplikacji”)` : ""}.`
+            : ev.profileMatch === null
+              ? "Dokumenty dotyczą innej osoby niż zapisana w aplikacji – wynik policzono wyłącznie z dokumentów."
+              : loggedIn
+                ? "Wynik policzono wyłącznie z dokumentów."
+                : "Wynik policzono wyłącznie z dokumentów. Zaloguj się, aby porównać je z Twoimi danymi i planem urlopów."}
+        </p>
         <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
             <div className="text-[13px] text-muted">Kto wypłaca</div>
@@ -467,6 +480,11 @@ function IssuesCard({ docs, cross }: { docs: DocItem[]; cross: ValidationIssue[]
             {[...g.issues].sort((a, b) => ["error", "warning", "info"].indexOf(a.severity) - ["error", "warning", "info"].indexOf(b.severity)).map((i, k) => (
               <div key={k} className={cn("rounded-xl px-3 py-2 text-[14px]", i.severity === "error" ? "bg-red-soft text-red" : i.severity === "warning" ? "bg-orange-soft text-orange" : "bg-surface-2 text-fg-2")}>
                 <div className="font-medium">{i.message}</div>
+                {i.hint && i.severity !== "info" && (
+                  <div className="mt-1 text-[13px] text-fg-2">
+                    <b>Skąd to wziąć:</b> {i.hint}
+                  </div>
+                )}
                 {i.legal && <LegalChip className="mt-1.5">{i.legal}</LegalChip>}
               </div>
             ))}

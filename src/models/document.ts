@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Ustandaryzowany JSON dokumentu – wspólny dla parsera regułowego i mapowania AI (Structured Output). */
-export const FORM_CODES = ["ZAM", "Z-3", "Z-3a", "ZAS-12", "ZAS-53", "Z-15A", "Z-15B", "Z-12", "ZCNA", "POSWIADCZENIE", "E-ZLA", "ZRZUT-SYSTEMU", "NIEZNANY"] as const;
+export const FORM_CODES = ["ZAM", "Z-3", "Z-3a", "ZAS-12", "ZAS-53", "Z-15A", "Z-15B", "Z-12", "ZCNA", "ZUA", "POSWIADCZENIE", "E-ZLA", "ZRZUT-SYSTEMU", "NIEZNANY"] as const;
 export type FormCode = (typeof FORM_CODES)[number];
 
 export const FORM_NAMES: Record<FormCode, string> = {
@@ -14,6 +14,7 @@ export const FORM_NAMES: Record<FormCode, string> = {
   "Z-15B": "Z-15B – Wniosek o zasiłek opiekuńczy (członek rodziny)",
   "Z-12": "Z-12 – Wniosek o zasiłek pogrzebowy",
   ZCNA: "ZUS ZCNA – Zgłoszenie członka rodziny do ubezpieczenia zdrowotnego",
+  ZUA: "ZUS ZUA – Zgłoszenie do ubezpieczeń",
   POSWIADCZENIE: "Poświadczenie ubezpieczenia chorobowego (ZUS)",
   "E-ZLA": "Zaświadczenie lekarskie e-ZLA",
   "ZRZUT-SYSTEMU": "Zrzut z systemu ZUS",
@@ -86,6 +87,8 @@ export interface ValidationIssue {
   severity: "error" | "warning" | "info";
   message: string;
   legal?: string;
+  /** skąd wziąć brakującą / poprawną informację */
+  hint?: string;
 }
 
 export interface AnalysisResponse {
@@ -135,8 +138,10 @@ export interface Verdict {
 /** Ocena całej sprawy (teczki dokumentów) – po scaleniu lub po ręcznej korekcie pól. */
 export interface CaseEvaluation {
   document: ExtractedDocument;
-  /** pole → indeks dokumentu w teczce, z którego pochodzi wartość */
+  /** pole → indeks dokumentu w teczce, z którego pochodzi wartość (-1 = uzupełniono z danych w aplikacji) */
   fieldFrom: Record<string, number>;
+  /** czyje dane z aplikacji dopasowano do dokumentów (po PESEL) – null, gdy dokument dotyczy innej osoby lub brak danych */
+  profileMatch?: "matka" | "ojciec" | null;
   caseInput: import("./types").CaseInput;
   verdict: Verdict;
   base: import("./types").BaseCalculation;

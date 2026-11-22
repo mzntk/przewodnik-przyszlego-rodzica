@@ -27,6 +27,8 @@ export interface FormJson {
   other: Record<string, FieldValue>;
   /** ustandaryzowany dokument – wejście do silnika uprawnień */
   document: ExtractedDocument;
+  /** ścieżki pól dokumentu uzupełnionych z pól druku */
+  paths: string[];
 }
 
 /** Druk (wartości pól) → JSON. Bez pól AcroForm zwraca form = null i pusty dokument. */
@@ -34,9 +36,10 @@ export function valuesToJson(values: Record<string, FieldValue>, form = detectOf
   const doc = parseDocumentText("");
   const defs = form ? (OFFICIAL_FIELDS[form] ?? []).filter((f) => !f.name.startsWith("@")) : [];
   const known = new Set(defs.map((f) => f.name));
+  let paths: string[] = [];
   if (form) {
     doc.formType = OFFICIAL_TO_FORMCODE[form] as ExtractedDocument["formType"];
-    applyFormFields(doc as unknown as Parameters<typeof applyFormFields>[0], form, values);
+    paths = applyFormFields(doc as unknown as Parameters<typeof applyFormFields>[0], form, values);
     if (doc.insured.pesel) doc.insured.birthDate = validatePesel(doc.insured.pesel).birthDate ?? null;
   }
   const meta = form ? OFFICIAL_FORMS[form] : null;
@@ -48,6 +51,7 @@ export function valuesToJson(values: Record<string, FieldValue>, form = detectOf
     fields: defs.map((f) => ({ name: f.name, label: f.label, section: f.section, type: f.check ? "check" : "text", value: values[f.name] ?? (f.check ? false : "") })),
     other: Object.fromEntries(Object.entries(values).filter(([k, v]) => !known.has(k) && v !== "" && v !== false)),
     document: doc,
+    paths,
   };
 }
 

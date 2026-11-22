@@ -8,6 +8,7 @@ import type { CalculationResult } from "@/models/types";
 import type { CaseData } from "@/store/app";
 import { dPL } from "@/lib/utils";
 import { OFFICIAL_FIELDS, fillValues, tableCells, todayIso, type FieldValue, type OfficialFormId } from "@/data/official-forms";
+import { FORM_ID, listCases } from "@/lib/cases";
 
 export interface FormField {
   key: string;
@@ -74,7 +75,7 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
   /** ZCNA składa płatnik tego z rodziców, który zgłasza dziecko – domyślnie tata, gdy ma płatnika */
   const zcnaWho: "matka" | "ojciec" = f?.payer || f?.business ? "ojciec" : "matka";
 
-  return [
+  const forms: FormDef[] = [
     {
       id: "mat-przed",
       code: "WNIOSEK",
@@ -319,4 +320,8 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       relevant: bio,
     },
   ];
+  // „dotyczy Cię” = ta sama lista co w Moich sprawach (jedno źródło prawdy: lib/cases)
+  const listed = new Set(listCases(d, r).map((c) => c.formId));
+  const mapped = new Set(Object.values(FORM_ID));
+  return forms.map((x) => (mapped.has(x.id) ? { ...x, relevant: listed.has(x.id) } : x));
 }

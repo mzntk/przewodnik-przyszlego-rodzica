@@ -8,7 +8,7 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { cn } from "@/lib/utils";
 
 /** Źródło wartości pola: z którego dokumentu teczki, czy odczytało AI, czy poprawiono ręcznie. */
-export type FieldSource = { label: string; tone: "doc" | "ai" | "edited" | "missing" };
+export type FieldSource = { label: string; tone: "doc" | "ai" | "edited" | "missing" | "app" };
 
 type Kind = "text" | "date" | "number" | "bool" | "title";
 type FieldDef = { path: string; label: string; kind: Kind; step?: number; hint?: string };
@@ -73,7 +73,7 @@ export function setPath<T>(o: T, path: string, v: unknown): T {
 const inputCls = "h-10 w-full rounded-lg border bg-white px-3 text-[15px] outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
 
 function SourceChip({ s }: { s: FieldSource }) {
-  return <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold uppercase", s.tone === "edited" ? "bg-blue-soft text-blue" : s.tone === "ai" ? "bg-gold-soft text-gold" : s.tone === "missing" ? "bg-red-soft text-red" : "bg-surface-3 text-muted")}>{s.label}</span>;
+  return <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold uppercase", s.tone === "edited" ? "bg-blue-soft text-blue" : s.tone === "app" ? "bg-green-soft text-green" : s.tone === "ai" ? "bg-gold-soft text-gold" : s.tone === "missing" ? "bg-red-soft text-red" : "bg-surface-3 text-muted")}>{s.label}</span>;
 }
 
 function FieldInput({ def, value, onChange }: { def: FieldDef; value: unknown; onChange: (v: unknown) => void }) {
@@ -113,7 +113,7 @@ export function CaseDataEditor({ doc, onChange, sourceOf, edited, onReset }: { d
     <Card>
       <CardHeader
         title="Dane sprawy – sprawdź i popraw"
-        subtitle="Odczytane z dokumentów. Popraw źle odczytane pole albo uzupełnij brakujące – wynik przeliczy się od razu."
+        subtitle="Odczytane z dokumentów (brakujące – z Twoich danych w aplikacji, jeśli dokument dotyczy Ciebie). Popraw źle odczytane pole albo uzupełnij brakujące – wynik przeliczy się od razu."
         icon={<Pencil className="h-4 w-4" />}
         action={
           edited ? (

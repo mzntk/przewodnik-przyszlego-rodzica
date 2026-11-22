@@ -8,8 +8,12 @@ import { readFileSync } from "node:fs";
 import { calculate } from "../src/services/engine";
 import { DEFAULT_LEGAL_CONFIG_2026 as cfg } from "../src/models/legal-config";
 import { familyByNo, FAMILY_COUNT } from "../src/data/families";
-import { fillValues, type OfficialFormId } from "../src/data/official-forms";
-import { fillOfficialPdfBytes } from "../src/lib/official-pdf";
+import { OFFICIAL_FIELDS, OFFICIAL_FORMS, blankValue, fillValues, sameFieldValue, type OfficialFormId } from "../src/data/official-forms";
+import { fillOfficialPdfBytes, readAcroForm } from "../src/lib/official-pdf";
+import { reviewOfficialForm } from "../src/services/forms/review";
+import { evaluateDocument, fillDocFromProfile, matchProfile } from "../src/services/documents/evaluate";
+import { buildForms } from "../src/components/forms/form-catalog";
+import { parseDocumentText } from "../src/services/documents/parse";
 import { pdfToJson } from "../src/services/forms/convert";
 import { checkForm } from "../src/services/forms/check";
 import { validateIdCard, validateNrb, validatePesel, validateRegon } from "../src/services/documents/identifiers";
@@ -60,4 +64,50 @@ test("formuły sprawdzania wykrywają wykluczające się zaznaczenia, błędne s
   assert.ok(rules.has("wykluczajace"), "TAK i NIE");
   assert.ok(rules.has("suma-kontrolna"), "PESEL / NRB");
   assert.ok(rules.has("zaleznosc"), "urlop ojcowski bez okresu");
+});
+
+test("Moje sprawy → pobrany wniosek → Sprawdź dokument: bez błędów, zgodny z aplikacją, ten sam werdykt (co 7. rodzina)", async () => {
+  for (let no = 1; no <= FAMILY_COUNT; no += 7) {
+    const fam = familyByNo(no, today);
+    const r = calculate({ ...fam.input, asOf: today }, cfg);
+    for (const f of buildForms(fam.input, r).filter((x) => x.official && x.relevant)) {
+      const form = f.official!;
+      const who = f.id === "zam-tata" ? "ojciec" : f.id === "zcna" && (fam.input.father?.payer || fam.input.father?.business) ? "ojciec" : "matka";
+      const values = Object.fromEntries(f.fields.map((x) => [x.key, x.value]));
+      const actual = await readAcroForm(await fillOfficialPdfBytes(readFileSync(`public/formularze/${OFFICIAL_FORMS[form].file}`), font, values));
+      const review = reviewOfficialForm(form, actual);
+      // przed porodem ZCNA ma tylko uwagę „złożysz po nadaniu PESEL”
+      assert.deepEqual(review.issues.filter((i) => i.severity === "error").map((i) => i.message), [], `rodzina ${no}, ${f.id}: błędy`);
+      // porównanie pole po polu z drukiem z danych aplikacji
+      const expected = fillValues(form, { d: fam.input, r, who, today });
+      for (const d of OFFICIAL_FIELDS[form]!.filter((x) => !x.name.startsWith("@") && x.read !== "signDate" && !x.today))
+        assert.ok(sameFieldValue(d, actual[d.name], expected[d.name]) || (blankValue(actual[d.name]) && blankValue(expected[d.name])), `rodzina ${no}, ${f.id}: ${d.name}`);
+      if (form === "Z-12") continue;
+      assert.equal(matchProfile(review.document, fam.input), who, `rodzina ${no}, ${f.id}: dopasowanie osoby`);
+      if (["zam", "zam-tata", "z3", "z3a"].includes(f.id)) {
+        const ev = evaluateDocument(fillDocFromProfile(review.document, fam.input, who).document, cfg, today, { profile: fam.input, who });
+        const segs = r.segments.filter((s) => s.who === who && !["wynagrodzenie_chorobowe", "chorobowy"].includes(s.kind));
+        assert.ok(Math.abs(ev.verdict.total - segs.reduce((a, x) => a + x.total, 0)) < 1, `rodzina ${no}, ${f.id}: kwota jak w kalkulatorze`);
+      }
+    }
+  }
+});
+
+test("Z-3: tabela wynagrodzeń, okres zatrudnienia, etat i liczba ubezpieczonych wracają z druku", async () => {
+  const c = ctx(1);
+  const actual = await readAcroForm(await fillOfficialPdfBytes(readFileSync("public/formularze/Z-3.pdf"), font, fillValues("Z-3", c)));
+  const doc = reviewOfficialForm("Z-3", actual).document;
+  const m = c.d.mother;
+  assert.equal(doc.insuranceStart, m.insuranceStart);
+  assert.equal(doc.workTimeFraction, m.workTimeFraction);
+  assert.equal(doc.payer.insuredCount! > 20, (m.payer?.insuredCount ?? 0) > 20);
+  assert.ok(doc.incomeMonths.length >= 1 && doc.incomeMonths.length <= 12);
+});
+
+test("wydruk pustego wzoru ZUS: parser tekstu nie bierze etykiet za dane", () => {
+  const t = "WNIOSEK O ZASIŁEK MACIERZYŃSKI ZAM\nImię\nNazwisko\nUlica\nJeśli prowadzisz pozarolniczą działalność gospodarczą\nprzyjęciem dziecka na wychowanie\nZakład Ubezpieczeń Społecznych w internecie – www.zus.pl";
+  const d = parseDocumentText(t);
+  assert.equal(d.insured.firstName, null);
+  assert.equal(d.title, null);
+  assert.equal(d.child.adoption, null);
 });

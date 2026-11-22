@@ -40,11 +40,16 @@ const REQUIRES: Partial<Record<OfficialFormId, { when: string; then: string; mes
     { when: "Page2.ZaznaczX1a", then: "Page3.Tekst1", message: "Urodzenie dziecka – podaj dane dziecka (imię, nazwisko, data i miejsce urodzenia)" },
     { when: "Page3._2", then: "Page3.Data2a", message: "Zaznaczono przewidywaną datę porodu – wpisz tę datę" },
     { when: "Page3.ZaznaczX1", then: "Page3.podajimie1", message: "Oświadczenie „Za życiem” – podaj imię dziecka", severity: "warning" },
+    { when: "Page3._3", then: "Page3.Tekst13B", message: "Urodzenie po ustaniu zatrudnienia – podaj dane dziecka (imię, nazwisko, data i miejsce urodzenia)" },
+    { when: "Page3.ZaznaczX1d", then: "Page3.podajimie", message: "Oświadczenie „Za życiem” – podaj imię dziecka", severity: "warning" },
+    { when: "Page3._4", then: "Page4.Tekst4c", message: "Urlop uzupełniający – podaj dane dziecka (imię, nazwisko, data i miejsce urodzenia)", severity: "warning" },
     { when: "Page3.upadlosc", then: "Page3._3", message: "Zaznaczono przyczynę ustania zatrudnienia bez zaznaczenia punktu 3" },
     { when: "Page3.likwidacje", then: "Page3._3", message: "Zaznaczono przyczynę ustania zatrudnienia bez zaznaczenia punktu 3" },
     { when: "Page3.rozwiazal", then: "Page3._3", message: "Zaznaczono przyczynę ustania zatrudnienia bez zaznaczenia punktu 3" },
     { when: "Page3.zmarl", then: "Page3._3", message: "Zaznaczono przyczynę ustania zatrudnienia bez zaznaczenia punktu 3" },
     { when: "Page3._4", then: "Page3.Tekst4a", message: "Urlop uzupełniający – podaj okres pobytu dziecka w szpitalu" },
+    { when: "Page2.ZaznaczX1b", then: "Page3.Tekst1", message: "Przyjęcie dziecka na wychowanie – podaj dane dziecka" },
+    { when: "Page2.ZaznaczX1c", then: "Page3.Tekst1", message: "Rodzina zastępcza – podaj dane dziecka" },
     { when: "Page5.TAK", then: "Page5.Okres", message: "Drugi rodzic skorzysta z urlopu – podaj okres" },
     { when: "Page5.TAK2", then: "Page5.Okres1", message: "Zaznaczono TAK w oświadczeniu o urlopie ojcowskim – podaj tytuł i okres" },
   ],
@@ -52,8 +57,17 @@ const REQUIRES: Partial<Record<OfficialFormId, { when: string; then: string; mes
     { when: "Page2.wniosek1B", then: "Page2.Data", message: "Niezdolność po ustaniu ubezpieczenia – podaj datę ustania tytułu" },
     { when: "Page2.TAK_5", then: "Page2.Tekst5", message: "Choroba zawodowa / wypadek – podaj dokument potwierdzający" },
   ],
-  "Z-3": [{ when: "Page2._3", then: "Page2.Tekstzm", message: "Zasiłek macierzyński – podaj okres" }, { when: "Page4.TAK_7", then: "Page4.Tekst7", message: "Praca w czasie urlopu rodzicielskiego – podaj okres i wymiar" }],
-  "Z-3a": [{ when: "Page2._3", then: "Page2.Tekstzm", message: "Zasiłek macierzyński – podaj okres" }, { when: "Page3.Informacje3TAK", then: "Page3.Data3", message: "Tytuł ubezpieczenia ustał – podaj datę ustania" }],
+  "Z-3": [
+    { when: "Page2._3", then: "Page2.Tekstzm", message: "Zasiłek macierzyński – podaj okres" },
+    { when: "Page2._1", then: "Page2.Tekst", message: "Zasiłek chorobowy – podaj okres zwolnienia" },
+    { when: "Page4.TAK_7", then: "Page4.Tekst7", message: "Praca w czasie urlopu rodzicielskiego – podaj okres i wymiar" },
+  ],
+  "Z-3a": [
+    { when: "Page2._3", then: "Page2.Tekstzm", message: "Zasiłek macierzyński – podaj okres" },
+    { when: "Page2._1", then: "Page2.Tekst", message: "Zasiłek chorobowy – podaj okres zwolnienia" },
+    { when: "Page3.Informacje3TAK", then: "Page3.Data3", message: "Tytuł ubezpieczenia ustał – podaj datę ustania" },
+    { when: "Page3.Informacje1A", then: "Page3.UCHpodlega", message: "Ubezpieczenie chorobowe – podaj, od kiedy ubezpieczony mu podlega" },
+  ],
   "Z-12": [{ when: "Page4.Narachunek", then: "Page4.Numerrachunku", message: "Wypłata na rachunek – podaj numer rachunku" }],
 };
 
@@ -94,9 +108,9 @@ export function checkForm(form: OfficialFormId, values: Record<string, FieldValu
     } else if (/Rodzajseriainumerdokumentu|SeriaNrDok/.test(f.name) && /^[A-Z]{3}\s?\d{6}$/i.test(v)) {
       const r = validateIdCard(v);
       if (!r.valid) push(f.name, "error", "suma-kontrolna", `${f.label}: ${r.error}`);
-    } else if (/(^|\.)Data|DataUr|DataPowstania|DataWypelnienia|Data\d|Data$/.test(f.name) && !/Dataimiejsce|AktualnaData/.test(f.name)) {
+    } else if (/(^|\.)Data|DataUr|DataPowstania|DataWypelnienia|Data\d|Data$/.test(f.name) && !/Dataimiejsce/.test(f.name)) {
       if (!isDate8(v)) push(f.name, "error", "data", `${f.label}: data musi mieć postać dd/mm/rrrr i istnieć w kalendarzu`);
-    } else if (f.read === "postal" && !/^\d{2}-?\d{3}$/.test(v)) {
+    } else if (f.read === "postal" && !/^\d{2}[-\s]?\d{3}$/.test(v)) {
       push(f.name, "error", "format", `${f.label}: kod pocztowy ma postać 00-000`);
     } else if (/Okres/.test(f.name) && /\d{2}\.\d{2}\.\d{4}.*\d{2}\.\d{2}\.\d{4}/.test(v)) {
       const d = [...v.matchAll(/(\d{2})\.(\d{2})\.(\d{4})/g)].map((m) => `${m[3]}-${m[2]}-${m[1]}`);

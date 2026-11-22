@@ -58,20 +58,30 @@ export function detectFormType(text: string): FormCode {
   if (/\bZ-3A\b|\bZ-3 ?A\b/.test(head)) return "Z-3a";
   if (/\bZAS-12\b/.test(head)) return "ZAS-12";
   if (/\bZAS-53\b/.test(head)) return "ZAS-53";
-  if (/\bZ-15A\b/.test(head)) return "Z-15A";
+  if (/\bZ-15A\b|\bZ-15\b(?!B)/.test(head)) return "Z-15A";
   if (/\bZ-15B\b/.test(head)) return "Z-15B";
+  if (/\bZCNA\b/.test(head)) return "ZCNA";
+  if (/\bZUS ZUA\b|\bZUA\b(?!\.)/.test(head)) return "ZUA";
   if (/\bZ-12\b/.test(head) && /POGRZEB/.test(t)) return "Z-12";
   if (/\bZ-3\b/.test(head)) return "Z-3";
-  if (/\bZAM\b/.test(head) || /WNIOSEK O ZASIŁEK MACIERZYŃSKI/.test(t)) return "ZAM";
+  // „ZAM.” w stopce druków ZUS to numer zamówienia drukarni („zam. nr 2965/26”), nie symbol wniosku
+  if (/\bZAM\b(?!\.)/.test(head) || /WNIOSEK O ZASIŁEK MACIERZYŃSKI/.test(t)) return "ZAM";
   if (/POŚWIADCZENIE/.test(head) && /UBEZPIECZ/.test(head)) return "POSWIADCZENIE";
   if (/E-ZLA|ZAŚWIADCZENIE LEKARSKIE/.test(head)) return "E-ZLA";
   if (/KSI|SYSTEM|EKRAN|ZRZUT/.test(head) && /ZASIŁ/.test(t)) return "ZRZUT-SYSTEMU";
   return "NIEZNANY";
 }
 
+/** Etykiety pól druków ZUS – nie mogą zostać odczytane jako wartość (np. imię „Nazwisko”). */
+const LABEL_WORDS = /^(nazwisko|imię|imie|imiona|ulica|data|strona|pesel|numer|kod|miejscowość|poczta|adres|nazwa|płatnik|seria|rodzaj|podpis|telefon|dane|wpisz|podaj|zaznacz)$/i;
+const notLabel = (v: string | null) => (v && !LABEL_WORDS.test(v.trim()) ? v : null);
+
 export function parseDocumentText(text: string): ExtractedDocument {
   const t = normalizeFormText(text);
   const formType = detectFormType(t);
+  // wydruk/skan pustego wzoru ZUS: w tekście są wszystkie etykiety i pouczenia (np. „pozarolnicza działalność”, „przysposobienie”),
+  // więc wnioskujemy tylko z opisanych wartości („Etykieta: wartość”), a nie ze słów kluczowych w całym tekście
+  const zusTemplate = /Zakład Ubezpieczeń Społecznych w internecie|Poligrafia ZUS/i.test(t);
 
   // --- identyfikatory
   const allPesels = [...t.matchAll(/\b(\d{11})\b/g)].map((m) => m[1]).filter((p) => validatePesel(p).valid);
@@ -82,15 +92,16 @@ export function parseDocumentText(text: string): ExtractedDocument {
   const nip = nipRaw ? nipRaw.replace(/[^\d]/g, "") : null;
   const regon = find(t, /REGON[:\s]*(\d{9,14})/i);
 
-  const firstName = find(t, /(?:Pierwsze imię|Imię)(?: ubezpieczone[jg]| wnioskodawcy)?[:\s]+([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż-]+)/);
-  const lastName = find(t, /Nazwisko(?: ubezpieczone[jg]| wnioskodawcy)?[:\s]+([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ-]+)/);
-  const address = find(t, /Adres(?: zamieszkania)?[:\s]+([^\n]{5,80})/i);
-  const payerName = find(t, /(?:Nazwa płatnika(?: składek)?|Nazwa skrócona|Płatnik składek)[: \t]+([^\n]{3,90})/i);
+  const firstName = notLabel(find(t, /(?:Pierwsze imię|Imię)(?: ubezpieczone[jg]| wnioskodawcy)?[ \t]*:?[ \t]+([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż-]+)/));
+  const lastName = notLabel(find(t, /Nazwisko(?: ubezpieczone[jg]| wnioskodawcy)?[ \t]*:?[ \t]+([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ-]+)/));
+  const address = find(t, /Adres(?: zamieszkania)?[ \t]*:[ \t]*([^\n]{5,80})/i);
+  const payerName = find(t, /(?:Nazwa płatnika(?: składek)?|Nazwa skrócona|Płatnik składek)[ \t]*:[ \t]*([^\n]{3,90})/i);
   const insuredCount = find(t, /[Ll]iczba (?:osób zgłoszonych|ubezpieczonych)[^\d\n]{0,80}(\d{1,6})/);
 
   // --- tytuł ubezpieczenia
   let title: ExtractedDocument["title"] = null;
-  const low = t.toLowerCase();
+  const titleLine = find(t, /Tytuł(?: ubezpieczenia)?[ \t]*:[ \t]*([^\n]{3,120})/i);
+  const low = (zusTemplate ? (titleLine ?? "") : t).toLowerCase();
   if (/student|uczeń/.test(low) && /zleceni/.test(low) && /nie podlega/.test(low)) title = "student_zlecenie";
   else if (/ulga na start/.test(low)) title = "ulga_na_start";
   else if (/mały zus/.test(low)) title = "maly_zus_plus";
@@ -132,11 +143,11 @@ export function parseDocumentText(text: string): ExtractedDocument {
   const gm = t.match(/(\d{2})\.?\s*(?:tydz\w*|tydzień) ciąży|tydzień ciąży[:\s]*(\d{2})/i);
   const gestation = gm ? (gm[1] ?? gm[2]) : null;
   const weight = find(t, /masa urodzeniowa[:\s]*(\d{3,4})/i);
-  const hosp = find(t, /(?:pobyt\w* (?:dziecka )?w szpitalu|hospitalizacj\w*)[^\d\n]{0,40}(\d{1,3}) dni/i);
-  const adoption = /przysposobieni|rodzin\w* zastępcz|przyjęci\w* dziecka na wychowanie/i.test(t) ? true : null;
+  const hosp = zusTemplate ? null : find(t, /(?:pobyt\w* (?:dziecka )?w szpitalu|hospitalizacj\w*)[^\d\n]{0,40}(\d{1,3}) dni/i);
+  const adoption = !zusTemplate && /przysposobieni|rodzin\w* zastępcz|przyjęci\w* dziecka na wychowanie/i.test(t) ? true : null;
 
   // --- świadczenie
-  const benefitType = find(t, /(?:rodzaj świadczenia|wnioskuję o|wnoszę o)[:\s]*(?:wypłatę )?(?:zasiłku )?([a-ząćęłńóśźż +]{6,70})/i);
+  const benefitType = zusTemplate ? null : find(t, /(?:rodzaj świadczenia|wnioskuję o|wnoszę o)[:\s]*(?:wypłatę )?(?:zasiłku )?([a-ząćęłńóśźż +]{6,70})/i);
   const benFrom = normalizeDate(find(t, new RegExp(String.raw`za okres od[:\s]*` + DATE, "i")));
   const benTo = normalizeDate(find(t, new RegExp(String.raw`za okres od[:\s]*\S+\s*do[:\s]*` + DATE, "i")));
   const variant815 = /81,5\s?%/.test(t) ? /\[x\][^\n]{0,80}81,5|81,5[^\n]{0,40}(tak|\[x\])/i.test(t) || /wnioskuję o 81,5/i.test(t) : null;
@@ -156,7 +167,7 @@ export function parseDocumentText(text: string): ExtractedDocument {
   const signed = signedExplicit && !/brak podpisu/i.test(t) ? true : !signatureBlank && /podpis/i.test(t) && /\n\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+ [A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż-]+\s*\n\s*\(?podpis/i.test(t);
   const signatureDate = normalizeDate(find(t, new RegExp(String.raw`(?:data(?: i podpis)?|dnia)[:\s]*` + DATE + String.raw`[^\n]{0,30}podpis`, "i")) ?? find(t, new RegExp(String.raw`(?:Miejscowość i data|Data wypełnienia)[^\n]{0,20}?` + DATE, "i")));
 
-  const decision = find(t, /(?:DECYZJA|Rozstrzygnięcie|Status)[:\s]+([^\n]{4,120})/i);
+  const decision = zusTemplate ? null : find(t, /(?:DECYZJA|Rozstrzygnięcie|Status)[:\s]+([^\n]{4,120})/i);
 
   return {
     formType,

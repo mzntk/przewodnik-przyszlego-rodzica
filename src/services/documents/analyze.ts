@@ -5,16 +5,16 @@
 import "server-only";
 import { extractText, getDocumentProxy } from "unpdf";
 import type { LegalConfig } from "@/models/legal-config";
-import type { AnalysisResponse, ExtractedDocument } from "@/models/document";
+import type { AnalysisResponse, ExtractedDocument, ValidationIssue } from "@/models/document";
 import { parseDocumentText } from "./parse";
-import { validateDocument } from "./validate";
+import { validateDocument, withOkNote } from "./validate";
 import { validatePesel, validateNip } from "./identifiers";
 import { aiExtract } from "@/services/ai/extract";
 import { AI_MODEL } from "@/services/ai/client";
 import { evaluateDocument } from "./evaluate";
 import { readAcroForm } from "@/lib/official-pdf";
-import { OFFICIAL_TO_FORMCODE, applyFormFields, detectOfficialForm } from "@/data/official-forms";
-import { checkForm } from "@/services/forms/check";
+import { detectOfficialForm } from "@/data/official-forms";
+import { reviewOfficialForm } from "@/services/forms/review";
 
 export async function extractPdfText(bytes: Uint8Array): Promise<{ text: string; pages: number }> {
   const pdf = await getDocumentProxy(bytes);
@@ -37,55 +37,51 @@ export async function analyzePdf(bytes: Uint8Array, fileName: string, cfg: Legal
   }
   const chars = text.replace(/\s/g, "").length;
   const scanned = pages > 0 ? chars / pages < 40 : chars < 40;
+  const officialForm = detectOfficialForm(Object.keys(formFields));
 
-  let regexDoc = parseDocumentText(text);
+  let doc: ExtractedDocument;
+  let sources: AnalysisResponse["fieldSources"] = {};
+  let issues: ValidationIssue[];
+  let method: AnalysisResponse["extraction"]["method"];
   let aiDoc: ExtractedDocument | null = null;
   let aiNote: string | undefined;
-  let method: AnalysisResponse["extraction"]["method"] = scanned ? "brak-tekstu" : "pdf-text";
-  if (opts.useAi) {
-    const r = scanned ? await aiExtract({ pdfBase64: Buffer.from(bytes).toString("base64") }) : await aiExtract({ text: text.slice(0, 60000) });
-    aiDoc = r.doc;
-    aiNote = r.note;
-    if (aiDoc && scanned) method = "ai-vision";
-  } else {
-    aiNote = "Tryb bez AI – parser regułowy.";
-  }
-  const { doc, sources } = mergeDocs(regexDoc, aiDoc);
-  regexDoc = doc;
 
-  // edytowalny druk ZUS: wartości pól są dokładne – mają pierwszeństwo przed odczytem tekstu i AI
-  const filledFields = Object.values(formFields).filter((v) => v !== "" && v !== false).length;
-  const officialForm = filledFields ? detectOfficialForm(Object.keys(formFields)) : null;
   if (officialForm) {
-    doc.formType = OFFICIAL_TO_FORMCODE[officialForm] as ExtractedDocument["formType"];
-    for (const path of applyFormFields(doc as unknown as Parameters<typeof applyFormFields>[0], officialForm, formFields)) sources[path] = "pdf";
-    if (doc.insured.pesel && !doc.insured.birthDate) doc.insured.birthDate = validatePesel(doc.insured.pesel).birthDate ?? null;
+    // Edytowalny druk ZUS: dane wyłącznie z pól formularza. Tekst PDF to treść szablonu (etykiety i pouczenia) –
+    // parser tekstu ani AI nie mogą go „odczytywać”, bo wzięłyby etykiety za dane (np. imię „Nazwisko”).
+    const review = reviewOfficialForm(officialForm, formFields);
+    doc = review.document;
+    for (const p of review.paths) sources[p] = "pdf";
+    issues = review.issues;
     method = "pdf-form";
+    aiNote = "Edytowalny druk ZUS – dane odczytano bezpośrednio z pól formularza (bez AI).";
+  } else {
+    const regexDoc = parseDocumentText(text);
+    method = scanned ? "brak-tekstu" : "pdf-text";
+    if (opts.useAi) {
+      const r = scanned ? await aiExtract({ pdfBase64: Buffer.from(bytes).toString("base64") }) : await aiExtract({ text: text.slice(0, 60000) });
+      aiDoc = r.doc;
+      aiNote = r.note;
+      if (aiDoc && scanned) method = "ai-vision";
+    } else {
+      aiNote = "Tryb bez AI – parser regułowy.";
+    }
+    ({ doc, sources } = mergeDocs(regexDoc, aiDoc));
+    issues = validateDocument(doc);
+    if (scanned && !aiDoc) issues.unshift({ field: "*", severity: "warning", message: "Dokument nie ma warstwy tekstowej (skan). Włącz analizę AI (OCR) lub prześlij PDF z tekstem.", hint: "Edytowalny druk wypełniony w aplikacji (Moje sprawy → wniosek → Podgląd → Pobierz) odczytamy bez AI." });
+    issues = withOkNote(issues);
   }
-  const issues = validateDocument(doc);
-  if (officialForm) {
-    // formuły sprawdzania druku (services/forms/check): wykluczające się zaznaczenia, zależności, daty, sumy kontrolne NRB/dowodu
-    const fc = checkForm(officialForm, formFields);
-    for (const i of [...fc.warnings, ...fc.errors].filter((x) => x.rule !== "suma-kontrolna" || /rachunk|dokument/i.test(x.label)))
-      issues.unshift({ field: i.field, severity: i.severity, message: i.message, legal: { "wykluczajace": "instrukcja wypełniania druku ZUS", "zaleznosc": "instrukcja wypełniania druku ZUS", "data": "format dd/mm/rrrr", "format": "format pola druku", "suma-kontrolna": "suma kontrolna", "wymagane": "pole wymagane" }[i.rule] });
-    const sig = issues.findIndex((i) => i.field === "signed");
-    if (sig >= 0) issues[sig] = { ...issues[sig], severity: "warning", message: "Podpisz druk po wydrukowaniu (podpisu nie da się wpisać w pole PDF) albo złóż go przez PUE/eZUS – tam podpisujesz elektronicznie." };
-  }
-  if (scanned && !aiDoc) issues.unshift({ field: "*", severity: "warning", message: "Dokument nie ma warstwy tekstowej (skan). Włącz analizę AI (OCR) lub prześlij PDF z tekstem." });
 
   const { caseInput: input, verdict, base } = evaluateDocument(doc, cfg, opts.asOf);
-  if (!doc.incomeMonths.length && !doc.declaredBase && verdict.insured) {
-    issues.push({ field: "incomeMonths", severity: "info", message: "Dokument nie zawiera danych o wynagrodzeniu/przychodzie – kwotę oszacowano od podstawy minimalnej. Dołącz Z-3/Z-3a lub poświadczenie ubezpieczenia, aby uzyskać dokładny wynik." });
-  }
 
   return {
     fileName,
     caseInput: input,
-    extraction: { method, pages, chars, scanned, aiUsed: !!aiDoc, aiModel: aiDoc ? AI_MODEL : undefined, aiNote, durationMs: Date.now() - t0 },
+    extraction: { method, pages, chars, scanned: officialForm ? false : scanned, aiUsed: !!aiDoc, aiModel: aiDoc ? AI_MODEL : undefined, aiNote, durationMs: Date.now() - t0 },
     document: doc,
     fieldSources: sources,
     issues,
-    textPreview: text.slice(0, 4000),
+    textPreview: officialForm ? Object.entries(formFields).filter(([, v]) => v !== "" && v !== false).map(([k, v]) => `${k}: ${v === true ? "[X]" : v}`).join("\n").slice(0, 4000) : text.slice(0, 4000),
     officialForm,
     formFields: officialForm ? formFields : undefined,
     verdict,

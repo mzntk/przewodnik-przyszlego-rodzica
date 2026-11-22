@@ -25,7 +25,7 @@ export async function fillOfficialPdfBytes(template: ArrayBuffer | Uint8Array, f
       else field.uncheck();
     } else if (field instanceof PDFDropdown && v) {
       // wartość to kod z początku opcji, np. „11” → „11 – dziecko własne…”, „04 11” → „04 11 – osoba wykonująca…”
-      const opt = field.getOptions().find((o) => o === String(v) || o.startsWith(`${v} `) || o.startsWith(`${v}–`) || o.startsWith(`${v} -`));
+      const opt = field.getOptions().find((o) => o === String(v) || [" ", "–", ","].some((sep) => o.startsWith(`${v}${sep}`)));
       if (opt) field.select(opt);
     }
   }

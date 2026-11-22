@@ -25,7 +25,7 @@ export const FORM_ID: Partial<Record<DocId, string>> = {
   "ZUS-ZUA": "zua",
   "800PLUS": "800plus",
   "ZAS-53": "zas53",
-  "Z-15A": "z15a",
+  "Z-15": "z15",
   "Z-12": "z12",
   "USC-REJESTRACJA": "usc",
 };
@@ -78,7 +78,7 @@ export function listCases(d: CaseData, r: CalculationResult): CaseItem[] {
   }
   if (!loss) add("800PLUS", dl("800plus"));
   if (loss) add("Z-12", dl("z12"));
-  if (d.care?.enabled) add("Z-15A");
+  if (d.care?.enabled) add("Z-15");
 
   return ids.map(([id, deadline]) => ({ guide: GUIDES[id], deadline, formId: FORM_ID[id] }));
 }

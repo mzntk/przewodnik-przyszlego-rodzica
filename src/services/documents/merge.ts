@@ -8,13 +8,13 @@ import { FORM_NAMES } from "@/models/document";
 import type { InsuranceTitle } from "@/models/types";
 
 type Doc = ExtractedDocument;
-const BENEFIT_FORMS: FormCode[] = ["ZAM", "ZAS-53", "Z-15A", "Z-15B", "Z-12", "E-ZLA"];
+const BENEFIT_FORMS: FormCode[] = ["ZAM", "ZAS-53", "Z-15", "Z-12", "E-ZLA"];
 const PRIORITY = {
-  insured: ["ZAM", "POSWIADCZENIE", "ZRZUT-SYSTEMU", "Z-3", "Z-3a", "ZAS-12", "ZAS-53", "Z-15A", "Z-15B", "Z-12", "E-ZLA", "NIEZNANY"],
-  payer: ["Z-3", "Z-3a", "ZAS-12", "POSWIADCZENIE", "ZRZUT-SYSTEMU", "ZAM", "ZAS-53", "Z-15A", "Z-15B", "NIEZNANY"],
+  insured: ["ZAM", "POSWIADCZENIE", "ZRZUT-SYSTEMU", "Z-3", "Z-3a", "ZAS-12", "ZAS-53", "Z-15", "Z-12", "E-ZLA", "NIEZNANY"],
+  payer: ["Z-3", "Z-3a", "ZAS-12", "POSWIADCZENIE", "ZRZUT-SYSTEMU", "ZAM", "ZAS-53", "Z-15", "NIEZNANY"],
   insurance: ["POSWIADCZENIE", "ZRZUT-SYSTEMU", "Z-3", "Z-3a", "ZAS-12", "ZAM", "ZAS-53", "NIEZNANY"],
   income: ["Z-3", "Z-3a", "ZAS-12", "POSWIADCZENIE", "ZRZUT-SYSTEMU", "ZAM", "NIEZNANY"],
-  child: ["ZAM", "Z-15A", "ZRZUT-SYSTEMU", "Z-3", "Z-3a", "POSWIADCZENIE", "NIEZNANY"],
+  child: ["ZAM", "Z-15", "ZRZUT-SYSTEMU", "Z-3", "Z-3a", "POSWIADCZENIE", "NIEZNANY"],
 } satisfies Record<string, FormCode[]>;
 const DEFAULT_TITLE: Partial<Record<FormCode, InsuranceTitle>> = { "Z-3": "uop", "ZAS-12": "uop", "Z-3a": "zlecenie", "ZAS-53": "jdg" };
 

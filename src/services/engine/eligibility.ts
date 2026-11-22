@@ -126,7 +126,7 @@ export function routePayer(p: ParentProfile, cfg: LegalConfig, ctx: { benefit: "
     if (large) docs.push({ code: "ODPIS-AKTU", name: "Odpis skrócony aktu urodzenia dziecka", who: "USC", to: "pracodawca", when: "Po rejestracji urodzenia w USC" });
   }
   if (ctx.benefit === "opiekunczy") {
-    docs.push({ code: "Z-15A", name: "Wniosek o zasiłek opiekuńczy – opieka nad dzieckiem", who: "ubezpieczony", to: large ? "pracodawca" : "ZUS", when: "Po okresie opieki, z e-ZLA lub oświadczeniem o zamknięciu placówki" });
+    docs.push({ code: "Z-15", name: "Wniosek o zasiłek opiekuńczy (Z-15) – opieka nad dzieckiem", who: "ubezpieczony", to: large ? "pracodawca" : "ZUS", when: "Po okresie opieki, z e-ZLA lub oświadczeniem o zamknięciu placówki" });
   }
 
   return {

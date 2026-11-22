@@ -54,7 +54,7 @@ export function simulateZusFetch(profileId: string, cfg: LegalConfig) {
 }
 
 /** Estymacja czasu rozpatrywania – prosty, jawny model (średnie dni robocze wg druku i płatnika). */
-const BASE_DAYS: Record<string, number> = { ZAM: 18, "Z-3": 14, "Z-3a": 16, "ZAS-12": 10, "ZAS-53": 21, "Z-15A": 12, "Z-15B": 12, "Z-12": 25, WNIOSEK: 7, USC: 3 };
+const BASE_DAYS: Record<string, number> = { ZAM: 18, "Z-3": 14, "Z-3a": 16, "ZAS-12": 10, "ZAS-53": 21, "Z-15": 12, "Z-12": 25, WNIOSEK: 7, USC: 3 };
 export function estimateProcessing(form: string, payer: "zus" | "pracodawca", complete: boolean) {
   const base = BASE_DAYS[form] ?? 14;
   const days = Math.round((payer === "pracodawca" ? base * 0.6 : base) * (complete ? 1 : 1.8));

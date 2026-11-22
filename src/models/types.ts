@@ -275,7 +275,7 @@ export interface PayerRouting {
 }
 
 export interface DocumentRequirement {
-  code: "ZAM" | "Z-3" | "Z-3a" | "ZAS-12" | "ZAS-53" | "Z-15A" | "Z-15B" | "Z-12" | "e-ZLA" | "WNIOSEK-URLOP" | "ODPIS-AKTU" | "ZASW-ZA-ZYCIEM" | "ZASW-SZPITAL" | "ZASW-PORÓD" | "ZASW-MARTWE" | "POSTANOWIENIE-SADU" | "ZUS-ZCNA" | "ZUS-ZUA";
+  code: "ZAM" | "Z-3" | "Z-3a" | "ZAS-12" | "ZAS-53" | "Z-15" | "Z-12" | "e-ZLA" | "WNIOSEK-URLOP" | "ODPIS-AKTU" | "ZASW-ZA-ZYCIEM" | "ZASW-SZPITAL" | "ZASW-PORÓD" | "ZASW-MARTWE" | "POSTANOWIENIE-SADU" | "ZUS-ZCNA" | "ZUS-ZUA";
   name: string;
   who: "ubezpieczony" | "płatnik" | "lekarz" | "USC" | "sąd" | "szpital";
   to: "pracodawca" | "ZUS" | "USC";
@@ -380,7 +380,7 @@ export interface CalculationResult {
   segments: BenefitSegment[];
   totals: { mother: number; father: number; family: number; monthlyMotherFirst: number };
   variants: VariantComparison;
-  care?: { days: number; allowed: number; daily: number; total: number; form: "Z-15A" | "Z-15B"; note: string };
+  care?: { days: number; allowed: number; daily: number; total: number; form: "Z-15"; note: string };
   familyBenefits: FamilyBenefitResult[];
   deadlines: Deadline[];
   findings: Finding[];

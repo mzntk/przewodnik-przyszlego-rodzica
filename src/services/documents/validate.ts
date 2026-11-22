@@ -78,8 +78,7 @@ const RULES: Partial<Record<ExtractedDocument["formType"], Rule[]>> = {
     bank("Zał. 1", "8"),
     signature("Zał. 1", "9"),
   ],
-  "Z-15A": [...insuredRules("Zał. 7"), { field: "child.pesel", check: (d) => !!(d.child.pesel || d.child.birthDate), message: "Brak PESEL (albo daty urodzenia) dziecka, nad którym sprawujesz opiekę", legal: "Zał. 7 pkt 3" }, { field: "child.firstName", check: (d) => !!d.child.firstName, message: "Brak imienia dziecka, nad którym sprawujesz opiekę", legal: "Zał. 7 pkt 3" }, bank("Zał. 7", "7"), signature("Zał. 7", "8")],
-  "Z-15B": [...insuredRules("Zał. 7"), bank("Zał. 7", "7"), signature("Zał. 7", "8")],
+  "Z-15": [...insuredRules("Zał. 7"), { field: "child.pesel", check: (d) => !!(d.child.pesel || d.child.birthDate), message: "Brak PESEL (albo daty urodzenia) osoby, nad którą sprawujesz opiekę", legal: "Zał. 7 pkt 3" }, { field: "child.firstName", check: (d) => !!d.child.firstName, message: "Brak imienia osoby, nad którą sprawujesz opiekę", legal: "Zał. 7 pkt 3" }, bank("Zał. 7", "7"), signature("Zał. 7", "8")],
   ZCNA: [
     ...payerRules("ZUS ZCNA blok II"),
     ...insuredRules("ZUS ZCNA blok III"),

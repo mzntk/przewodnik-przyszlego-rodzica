@@ -225,7 +225,7 @@ export function Analyzer() {
               >
                 <UploadCloud className={cn("h-8 w-8", drag ? "text-brand" : "text-muted")} />
                 <span className="text-[15px] font-medium">Upuść PDF-y jednej sprawy lub kliknij, aby wybrać</span>
-                <span className="text-[13px] text-muted">ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15A/B, poświadczenie ubezpieczenia, zrzut z systemu, skany</span>
+                <span className="text-[13px] text-muted">ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15, poświadczenie ubezpieczenia, zrzut z systemu, skany</span>
               </button>
               <input ref={fileRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => (e.target.files?.length && addFiles(e.target.files, false), (e.target.value = ""))} />
               <div className="rounded-xl border border-line p-3">

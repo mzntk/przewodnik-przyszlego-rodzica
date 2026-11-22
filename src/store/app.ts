@@ -323,13 +323,21 @@ export const useApp = create<AppState>()(
     }),
     {
       name: "zasilkowy-przewodnik-v3",
-      version: 6,
+      version: 7,
       partialize: ({ activeCase: _a, ...rest }) => rest,
       // v3 → v4: nowe pola (preferencje powiadomień, wiadomości, zaproszenie) – uzupełniamy domyślnymi
       // v5 → v6: adres, rachunek, REGON płatnika, PESEL dzieci – uzupełniane z profilu rodziny (pełne wnioski)
+      // v6 → v7: sprawa „Z-15A” → „Z-15” (od 24.10.2026 jeden druk Z-15 zamiast Z-15A i Z-15B)
       migrate: (persisted, version) => {
         const p = { ...(persisted as AppState), ...(version < 4 ? { notifyPrefs: defaultPrefs(), email: "", zusMessages: [], invite: null, aiConsent: true } : {}), ...(version < 5 ? { familyNo: null } : {}) } as AppState;
         if (version < 6 && p.familyNo && p.data) p.data = completeFromFamily(p.data, familyByNo(p.familyNo));
+        if (version < 7) {
+          if (p.cases?.["Z-15A"]) {
+            const { "Z-15A": z15, ...rest } = p.cases;
+            p.cases = { ...rest, "Z-15": rest["Z-15"] ?? z15 };
+          }
+          p.notifications = (p.notifications ?? []).map((n) => (n.caseId === "Z-15A" ? { ...n, caseId: "Z-15" } : n));
+        }
         return p;
       },
     },

@@ -17,7 +17,7 @@ export type DocId =
   | "Z-3"
   | "Z-3a"
   | "ZAS-53"
-  | "Z-15A"
+  | "Z-15"
   | "Z-12"
   | "USC-REJESTRACJA"
   | "NFZ-ZGLOSZENIE"
@@ -203,10 +203,10 @@ export const GUIDES: Record<DocId, DocGuide> = {
     prepare: ["Seria i numer e-ZLA", "Numer rachunku bankowego", "Potwierdzenie opłacenia składek"],
     attachments: () => [],
   },
-  "Z-15A": {
-    id: "Z-15A",
+  "Z-15": {
+    id: "Z-15",
     code: "Z-15",
-    glossary: "Z-15A",
+    glossary: "Z-15",
     name: "Wniosek o zasiłek opiekuńczy (Z-15)",
     to: "ZUS",
     owner: "mama",

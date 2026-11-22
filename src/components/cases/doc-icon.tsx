@@ -15,7 +15,7 @@ const ICONS: Record<DocId, typeof FileText> = {
   "Z-3": Building2,
   "Z-3a": Building2,
   "ZAS-53": Stethoscope,
-  "Z-15A": HeartPulse,
+  "Z-15": HeartPulse,
   "Z-12": Flower2,
   "USC-REJESTRACJA": Baby,
   "NFZ-ZGLOSZENIE": ShieldPlus,

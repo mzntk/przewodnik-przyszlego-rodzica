@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Ustandaryzowany JSON dokumentu – wspólny dla parsera regułowego i mapowania AI (Structured Output). */
-export const FORM_CODES = ["ZAM", "Z-3", "Z-3a", "ZAS-12", "ZAS-53", "Z-15A", "Z-15B", "Z-12", "ZCNA", "ZUA", "POSWIADCZENIE", "E-ZLA", "ZRZUT-SYSTEMU", "NIEZNANY"] as const;
+export const FORM_CODES = ["ZAM", "Z-3", "Z-3a", "ZAS-12", "ZAS-53", "Z-15", "Z-12", "ZCNA", "ZUA", "POSWIADCZENIE", "E-ZLA", "ZRZUT-SYSTEMU", "NIEZNANY"] as const;
 export type FormCode = (typeof FORM_CODES)[number];
 
 export const FORM_NAMES: Record<FormCode, string> = {
@@ -10,8 +10,7 @@ export const FORM_NAMES: Record<FormCode, string> = {
   "Z-3a": "Z-3a – Zaświadczenie płatnika składek (niepracownik)",
   "ZAS-12": "ZAS-12 – Zaświadczenie płatnika na dalszy okres",
   "ZAS-53": "ZAS-53 – Wniosek o zasiłek chorobowy",
-  "Z-15A": "Z-15 – Wniosek o zasiłek opiekuńczy",
-  "Z-15B": "Z-15B – Wniosek o zasiłek opiekuńczy (członek rodziny)",
+  "Z-15": "Z-15 – Wniosek o zasiłek opiekuńczy",
   "Z-12": "Z-12 – Wniosek o zasiłek pogrzebowy",
   ZCNA: "ZUS ZCNA – Zgłoszenie członka rodziny do ubezpieczenia zdrowotnego",
   ZUA: "ZUS ZUA – Zgłoszenie do ubezpieczeń",

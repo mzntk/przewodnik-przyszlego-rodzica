@@ -76,7 +76,7 @@ export function calculate(input: CaseInput, cfg: LegalConfig): CalculationResult
       allowed,
       daily,
       total: round2(daily * allowed),
-      form: c.type === "inny_czlonek" ? "Z-15B" : "Z-15A",
+      form: "Z-15",
       note: `Limit roczny ${limit} dni (łącznie maks. ${cfg.care.totalMaxDays} dni na wszystkie tytuły opieki). Zasiłek opiekuńczy nie ma okresu wyczekiwania – przysługuje od 1. dnia ubezpieczenia.`,
     };
   }

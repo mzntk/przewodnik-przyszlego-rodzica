@@ -671,7 +671,7 @@ export function fieldSource(form: OfficialFormId, f: OfficialField): string {
   return `Zgodnie z Twoją sytuacją – sekcja „${f.section}” druku ${OFFICIAL_FORMS[form].code}.`;
 }
 
-export const OFFICIAL_FOR_DOC: Record<string, OfficialFormId> = { ZAM: "ZAM", "ZAM-TATA": "ZAM", "ZAS-53": "ZAS-53", "Z-15A": "Z-15", "Z-12": "Z-12", "NFZ-ZGLOSZENIE": "ZCNA", "Z-3": "Z-3", "Z-3a": "Z-3a", "ZUS-ZUA": "ZUA" };
+export const OFFICIAL_FOR_DOC: Record<string, OfficialFormId> = { ZAM: "ZAM", "ZAM-TATA": "ZAM", "ZAS-53": "ZAS-53", "Z-15": "Z-15", "Z-12": "Z-12", "NFZ-ZGLOSZENIE": "ZCNA", "Z-3": "Z-3", "Z-3a": "Z-3a", "ZUS-ZUA": "ZUA" };
 export const todayIso = () => new Date().toISOString().slice(0, 10);
 export { pad };
 
@@ -687,7 +687,7 @@ const periodOf = (s: string) => {
 };
 
 /** Typ druku w ustandaryzowanym JSON (models/document). */
-export const OFFICIAL_TO_FORMCODE: Record<OfficialFormId, string> = { ZAM: "ZAM", "ZAS-53": "ZAS-53", "Z-15": "Z-15A", "Z-12": "Z-12", ZCNA: "ZCNA", "Z-3": "Z-3", "Z-3a": "Z-3a", ZUA: "ZUA" };
+export const OFFICIAL_TO_FORMCODE: Record<OfficialFormId, string> = { ZAM: "ZAM", "ZAS-53": "ZAS-53", "Z-15": "Z-15", "Z-12": "Z-12", ZCNA: "ZCNA", "Z-3": "Z-3", "Z-3a": "Z-3a", ZUA: "ZUA" };
 /** Kod tytułu ubezpieczenia (ZUS ZUA, blok V) → tytuł w aplikacji. */
 const TITLE_BY_ZUA_CODE: [RegExp, string][] = [[/^01/, "uop"], [/^04 11/, "zlecenie"], [/^05 70/, "jdg_preferencyjna"], [/^05 90/, "maly_zus_plus"], [/^05/, "jdg"], [/^04/, "zlecenie"]];
 

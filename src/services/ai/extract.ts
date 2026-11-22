@@ -9,7 +9,7 @@ import { ExtractedDocumentSchema, type ExtractedDocument } from "@/models/docume
 import { AI_MODEL, aiAvailable, getClient } from "./client";
 import { pseudonymize, restore } from "./privacy";
 
-const SYSTEM = `Jesteś modułem ekstrakcji danych z polskich dokumentów ZUS (ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15A/B, Z-12, poświadczenia ubezpieczenia, zrzuty systemowe, e-ZLA).
+const SYSTEM = `Jesteś modułem ekstrakcji danych z polskich dokumentów ZUS (ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15 (dawniej Z-15A i Z-15B), Z-12, poświadczenia ubezpieczenia, zrzuty systemowe, e-ZLA).
 Zwróć wyłącznie dane, które są w dokumencie. Gdy pola nie ma – null. Nie obliczaj żadnych kwot ani uprawnień i nie zgaduj.
 Daty w formacie RRRR-MM-DD, miesiące w formacie RRRR-MM, kwoty jako liczby (kropka dziesiętna).
 "signed" = true tylko wtedy, gdy dokument zawiera podpis (np. adnotację o podpisie elektronicznym lub imię i nazwisko w polu podpisu); puste pole podpisu = false.

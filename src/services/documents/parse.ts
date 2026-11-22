@@ -58,8 +58,8 @@ export function detectFormType(text: string): FormCode {
   if (/\bZ-3A\b|\bZ-3 ?A\b/.test(head)) return "Z-3a";
   if (/\bZAS-12\b/.test(head)) return "ZAS-12";
   if (/\bZAS-53\b/.test(head)) return "ZAS-53";
-  if (/\bZ-15A\b|\bZ-15\b(?!B)/.test(head)) return "Z-15A";
-  if (/\bZ-15B\b/.test(head)) return "Z-15B";
+  // Z-15 od 24.10.2026 zastąpił Z-15A i Z-15B – starsze druki rozpoznajemy jako Z-15
+  if (/\bZ-15[AB]?\b/.test(head)) return "Z-15";
   if (/\bZCNA\b/.test(head)) return "ZCNA";
   if (/\bZUS ZUA\b|\bZUA\b(?!\.)/.test(head)) return "ZUA";
   if (/\bZ-12\b/.test(head) && /POGRZEB/.test(t)) return "Z-12";

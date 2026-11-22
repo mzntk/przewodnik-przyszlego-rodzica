@@ -1,6 +1,6 @@
 /**
  * Katalog wniosków: (a) urlopowe do pracodawcy – zaprojektowane wg rozporządzenia MRPiPS z 11.03.2025 (Dz.U. poz. 322),
- * (b) druki ZUS (stan po 24.10.2026: ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15A, Z-15B, Z-12), (c) USC.
+ * (b) druki ZUS (stan po 24.10.2026: ZAM, Z-3, Z-3a, ZAS-12, ZAS-53, Z-15, Z-12), (c) USC.
  * Pola są autouzupełniane z profilu i wyniku deterministycznego silnika.
  */
 import { childLine } from "@/lib/child";
@@ -197,9 +197,9 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       relevant: ["jdg", "jdg_preferencyjna", "maly_zus_plus"].includes(m.title) && m.sickLeaves.length > 0,
     },
     {
-      id: "z15a",
+      id: "z15",
       code: "Z-15",
-      title: "Wniosek o zasiłek opiekuńczy (Z-15 – od 24.10.2026 zastępuje Z-15A i Z-15B)",
+      title: "Wniosek o zasiłek opiekuńczy (Z-15 – od 24.10.2026 zastąpił Z-15A i Z-15B)",
       target: "ZUS",
       legal: "art. 32–35 ustawy zasiłkowej; Załącznik 7 rozporządzenia z 27.09.2026",
       when: "Po okresie opieki",

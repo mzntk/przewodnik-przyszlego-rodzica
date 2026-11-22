@@ -16,6 +16,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { InfoTip } from "@/components/ui/info-tip";
 import { BaseSteps } from "@/components/calculator/results";
 import { CaseDataEditor, getPath, setPath, type FieldSource } from "./case-data-editor";
+import { FormCompare } from "./form-compare";
 import { useApp } from "@/store/app";
 import { cn, dShort, zl } from "@/lib/utils";
 
@@ -154,7 +155,7 @@ export function Analyzer() {
     const d = idx !== undefined ? ds[idx]?.res : undefined;
     if (!d) return { label: "z dokumentów", tone: "doc" };
     const ai = d.fieldSources[path] === "ai";
-    return { label: `${short(d.document.formType)}${ai ? " · AI" : ""}`, tone: ai ? "ai" : "doc" };
+    return { label: `${short(d.document.formType)}${ai ? " · AI" : d.fieldSources[path] === "pdf" ? " · pole" : ""}`, tone: ai ? "ai" : "doc" };
   }
 
   function loadToProfile() {
@@ -270,6 +271,7 @@ export function Analyzer() {
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               <VerdictCard ev={ev} recalc={recalc} edited={edited.size > 0} onLoad={loadToProfile} onJson={() => setJsonOpen(true)} />
               <IssuesCard docs={evalDocs} cross={cross} />
+              {evalDocs.map((d) => d.res?.officialForm && <FormCompare key={d.key} res={d.res} />)}
               <CaseDataEditor doc={draft} onChange={change} sourceOf={sourceOf} edited={edited.size > 0} onReset={resetEdits} />
             </motion.div>
           )}
@@ -322,7 +324,7 @@ function Folder({ docs, busy, onRemove, onAdd, onClear }: { docs: DocItem[]; bus
               </div>
               {r && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  {r.extraction.aiUsed ? <AiBadge /> : <Badge>parser</Badge>}
+                  {r.officialForm ? <Badge tone="green">pola druku ZUS</Badge> : r.extraction.aiUsed ? <AiBadge /> : <Badge>parser</Badge>}
                   {r.extraction.scanned && <Badge tone="orange">skan</Badge>}
                   <Badge tone={errors ? "red" : "green"}>{errors ? `${errors} braki` : "bez braków"}</Badge>
                 </div>

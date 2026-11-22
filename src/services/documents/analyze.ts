@@ -12,6 +12,8 @@ import { validatePesel, validateNip } from "./identifiers";
 import { aiExtract } from "@/services/ai/extract";
 import { AI_MODEL } from "@/services/ai/client";
 import { evaluateDocument } from "./evaluate";
+import { readAcroForm } from "@/lib/official-pdf";
+import { OFFICIAL_TO_FORMCODE, applyFormFields, detectOfficialForm, fieldLabel, findConflicts } from "@/data/official-forms";
 
 export async function extractPdfText(bytes: Uint8Array): Promise<{ text: string; pages: number }> {
   const pdf = await getDocumentProxy(bytes);
@@ -21,10 +23,12 @@ export async function extractPdfText(bytes: Uint8Array): Promise<{ text: string;
 
 export async function analyzePdf(bytes: Uint8Array, fileName: string, cfg: LegalConfig, opts: { useAi: boolean; asOf: string }): Promise<AnalysisResponse> {
   const t0 = Date.now();
+  // najpierw pola formularza (kopia bajtów – pdf.js przejmuje bufor przy odczycie tekstu)
+  const formFields = await readAcroForm(bytes.slice());
   let text = "";
   let pages = 0;
   try {
-    const r = await extractPdfText(bytes);
+    const r = await extractPdfText(bytes.slice());
     text = r.text;
     pages = r.pages;
   } catch {
@@ -47,7 +51,23 @@ export async function analyzePdf(bytes: Uint8Array, fileName: string, cfg: Legal
   }
   const { doc, sources } = mergeDocs(regexDoc, aiDoc);
   regexDoc = doc;
+
+  // edytowalny druk ZUS: wartości pól są dokładne – mają pierwszeństwo przed odczytem tekstu i AI
+  const filledFields = Object.values(formFields).filter((v) => v !== "" && v !== false).length;
+  const officialForm = filledFields ? detectOfficialForm(Object.keys(formFields)) : null;
+  if (officialForm) {
+    doc.formType = OFFICIAL_TO_FORMCODE[officialForm] as ExtractedDocument["formType"];
+    for (const path of applyFormFields(doc as unknown as Parameters<typeof applyFormFields>[0], officialForm, formFields)) sources[path] = "pdf";
+    if (doc.insured.pesel && !doc.insured.birthDate) doc.insured.birthDate = validatePesel(doc.insured.pesel).birthDate ?? null;
+    method = "pdf-form";
+  }
   const issues = validateDocument(doc);
+  if (officialForm) {
+    for (const c of findConflicts(officialForm, formFields))
+      issues.unshift({ field: "checkbox", severity: "error", message: `Zaznaczono wykluczające się pola – ${c.label}: ${c.checked.map((k) => `„${fieldLabel(officialForm, k)}”`).join(" i ")}. Zostaw jedno zaznaczenie.`, legal: "instrukcja wypełniania druku ZUS" });
+    const sig = issues.findIndex((i) => i.field === "signed");
+    if (sig >= 0) issues[sig] = { ...issues[sig], severity: "warning", message: "Podpisz druk po wydrukowaniu (podpisu nie da się wpisać w pole PDF) albo złóż go przez PUE/eZUS – tam podpisujesz elektronicznie." };
+  }
   if (scanned && !aiDoc) issues.unshift({ field: "*", severity: "warning", message: "Dokument nie ma warstwy tekstowej (skan). Włącz analizę AI (OCR) lub prześlij PDF z tekstem." });
 
   const { caseInput: input, verdict, base } = evaluateDocument(doc, cfg, opts.asOf);
@@ -63,6 +83,8 @@ export async function analyzePdf(bytes: Uint8Array, fileName: string, cfg: Legal
     fieldSources: sources,
     issues,
     textPreview: text.slice(0, 4000),
+    officialForm,
+    formFields: officialForm ? formFields : undefined,
     verdict,
     base,
   };

@@ -1,6 +1,6 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
-import { Baby, Bell, BellRing, Check, Database, Download, KeyRound, LogOut, Mail, MessagesSquare, RotateCcw, Shield, ShieldCheck, Smartphone, Sparkles, Trash2, UserPlus, UserRound, Users } from "lucide-react";
+import { Baby, Bell, BellRing, Check, Database, KeyRound, LogOut, Mail, MessagesSquare, RotateCcw, Shield, ShieldCheck, Smartphone, Sparkles, Trash2, UserPlus, UserRound, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -246,7 +246,7 @@ function NotificationSettings() {
   );
 }
 
-/** Konto: dane logowania, kontakt, prywatność (RODO), eksport i usunięcie danych. */
+/** Konto: dane logowania, kontakt, prywatność (RODO) i usunięcie danych. */
 function AccountTab() {
   const router = useRouter();
   const { data, account, loginMethod, logout, aiConsent, setAiConsent, email, invite, familyNo } = useApp();
@@ -254,16 +254,6 @@ function AccountTab() {
   const person = dad ? data.father : data.mother;
   const pesel = person?.pesel ? `${person.pesel.slice(0, 2)}*******${person.pesel.slice(-2)}` : "—";
 
-  function exportData() {
-    const raw = localStorage.getItem("zasilkowy-przewodnik-v3") ?? "{}";
-    const blob = new Blob([JSON.stringify(JSON.parse(raw), null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `moje-dane-przewodnik-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast.success("Pobrano kopię Twoich danych (art. 20 RODO)");
-  }
   function wipe() {
     if (!confirm("Usunąć wszystkie dane tej aplikacji z tego urządzenia? Tej operacji nie można cofnąć.")) return;
     localStorage.removeItem("zasilkowy-przewodnik-v3");
@@ -323,9 +313,6 @@ function AccountTab() {
             <li>• Administrator danych: Zakład Ubezpieczeń Społecznych (w wersji produkcyjnej).</li>
           </ul>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={exportData}>
-              <Download className="h-4 w-4" /> Pobierz moje dane
-            </Button>
             <Button variant="danger" onClick={wipe}>
               <Trash2 className="h-4 w-4" /> Usuń dane z urządzenia
             </Button>

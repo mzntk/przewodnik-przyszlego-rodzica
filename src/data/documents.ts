@@ -13,6 +13,7 @@ export type DocId =
   | "URLOP-UZUP"
   | "URLOP-OJC"
   | "ZAM"
+  | "ZAM-TATA"
   | "Z-3"
   | "Z-3a"
   | "ZAS-53"
@@ -131,6 +132,19 @@ export const GUIDES: Record<DocId, DocGuide> = {
     prepare: ["Data urodzenia dziecka", "Wybrane daty urlopu"],
     attachments: (c) => (c.payerIsZus ? [] : ["Odpis skrócony aktu urodzenia dziecka – gdy zasiłek wypłaca pracodawca"]),
   },
+  "ZAM-TATA": {
+    id: "ZAM-TATA",
+    code: "ZAM",
+    glossary: "ZAM",
+    name: "Wniosek o zasiłek macierzyński – tata (urlop ojcowski)",
+    to: "ZUS",
+    owner: "tata",
+    legal: "art. 29 ust. 1 pkt 4 ustawy zasiłkowej; Zał. 6 rozp. z 27.09.2026",
+    howTo: ["Tata na zleceniu albo z własną firmą nie bierze urlopu u pracodawcy – składa ZAM do ZUS (lub zleceniodawcy, gdy ten wypłaca zasiłki).", "Zaznacz „urlopu ojcowskiego” i podaj okres (14 dni naraz albo 2 × 7 dni) – do ukończenia przez dziecko 12 miesięcy.", "Odpowiedz na oświadczenie, czy pobierałeś już zasiłek za ten okres z innego tytułu.", "Podaj numer rachunku i podpisz wniosek."],
+    mistakes: ["Okres po 12. miesiącu życia dziecka.", "Część krótsza niż 7 dni.", "Zaznaczenie TAK i NIE w tym samym oświadczeniu."],
+    prepare: ["PESEL Twój i dziecka", "NIP i REGON zleceniodawcy albo Twojej firmy", "Numer rachunku bankowego", "Data urodzenia dziecka"],
+    attachments: (c) => (c.payerIsZus ? [] : ["Odpis skrócony aktu urodzenia dziecka"]),
+  },
   ZAM: {
     id: "ZAM",
     code: "ZAM",
@@ -191,9 +205,9 @@ export const GUIDES: Record<DocId, DocGuide> = {
   },
   "Z-15A": {
     id: "Z-15A",
-    code: "Z-15A",
+    code: "Z-15",
     glossary: "Z-15A",
-    name: "Wniosek o zasiłek opiekuńczy na dziecko",
+    name: "Wniosek o zasiłek opiekuńczy (Z-15)",
     to: "ZUS",
     owner: "mama",
     legal: "art. 32–35 ustawy zasiłkowej; Zał. 7 rozp. z 27.09.2026",

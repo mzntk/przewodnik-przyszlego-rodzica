@@ -4,7 +4,7 @@
  * Pierwsze 5 rodzin to ręcznie przygotowane scenariusze szczególne (wcześniaki, firma z długiem, studentka, adopcja…).
  * Dane są fikcyjne; PESEL i NIP mają poprawną sumę kontrolną, ale nie należą do realnych osób ani firm.
  */
-import type { CaseInput, InsuranceTitle, KidInfo, ParentProfile } from "@/models/types";
+import type { Address, CaseInput, InsuranceTitle, KidInfo, ParentProfile } from "@/models/types";
 import { TEST_PROFILES, buildIncomeHistory, type TestProfile } from "./profiles";
 
 export const FAMILY_COUNT = 100;
@@ -54,6 +54,95 @@ function nip(r: R) {
     const c = digits.reduce((s, x, i) => s + x * w[i], 0) % 11;
     if (c < 10) return digits.join("") + c;
   }
+}
+
+function regon(r: R) {
+  const w = [8, 9, 2, 3, 4, 5, 6, 7];
+  const d = Array.from({ length: 8 }, (_, i) => (i === 0 ? int(r, 1, 9) : int(r, 0, 9)));
+  return d.join("") + ((d.reduce((s, x, i) => s + x * w[i], 0) % 11) % 10);
+}
+
+/** NRB (26 cyfr) z poprawną cyfrą kontrolną IBAN (mod 97) – fikcyjny numer konta. */
+function nrb(r: R) {
+  const bban = Array.from({ length: 24 }, () => int(r, 0, 9)).join("");
+  const num = `${bban}252100`; // „PL” = 25 21
+  let mod = 0;
+  for (const ch of num) mod = (mod * 10 + Number(ch)) % 97;
+  return String(98 - mod).padStart(2, "0") + bban;
+}
+
+/** Seria i numer dowodu osobistego (AAA + cyfra kontrolna + 5 cyfr), z poprawną cyfrą kontrolną. */
+function idCard(r: R) {
+  const L = "ABCDEFGHIJKLMNOPRSTUVWXYZ";
+  const letters = Array.from({ length: 3 }, () => L[int(r, 0, L.length - 1)]);
+  const digits = Array.from({ length: 5 }, () => int(r, 0, 9));
+  const v = (c: string) => c.charCodeAt(0) - 55; // A=10
+  const S = letters.reduce((s, c, i) => s + v(c) * [7, 3, 1][i], 0) + digits.reduce((s, d, i) => s + d * [7, 3, 1, 7, 3][i], 0);
+  return `${letters.join("")}${S % 10}${digits.join("")}`;
+}
+
+const CITIES: { city: string; postal: string; commune: string; hospital: string }[] = [
+  { city: "Warszawa", postal: "02", commune: "Warszawa", hospital: "Szpital Specjalistyczny im. św. Zofii" },
+  { city: "Kraków", postal: "31", commune: "Kraków", hospital: "Szpital Uniwersytecki" },
+  { city: "Gdańsk", postal: "80", commune: "Gdańsk", hospital: "Szpital Św. Wojciecha" },
+  { city: "Wrocław", postal: "53", commune: "Wrocław", hospital: "Szpital Specjalistyczny im. A. Falkiewicza" },
+  { city: "Poznań", postal: "61", commune: "Poznań", hospital: "Ginekologiczno-Położniczy Szpital Kliniczny" },
+  { city: "Łódź", postal: "93", commune: "Łódź", hospital: "Centrum Zdrowia Matki Polki" },
+  { city: "Lublin", postal: "20", commune: "Lublin", hospital: "Szpital Kliniczny nr 4" },
+  { city: "Katowice", postal: "40", commune: "Katowice", hospital: "Szpital Specjalistyczny nr 2" },
+  { city: "Białystok", postal: "15", commune: "Białystok", hospital: "Uniwersytecki Szpital Kliniczny" },
+  { city: "Rzeszów", postal: "35", commune: "Rzeszów", hospital: "Szpital Wojewódzki nr 1" },
+  { city: "Toruń", postal: "87", commune: "Toruń", hospital: "Szpital Miejski" },
+  { city: "Olsztyn", postal: "10", commune: "Olsztyn", hospital: "Szpital Wojewódzki" },
+];
+const STREETS = ["Lipowa", "Słoneczna", "Kwiatowa", "Polna", "Leśna", "Ogrodowa", "Szkolna", "Długa", "Mickiewicza", "Kościuszki", "Sienkiewicza", "Akacjowa", "Brzozowa", "Klonowa", "Parkowa", "Łąkowa", "Wiosenna", "Spacerowa"];
+const BUSINESS = ["Usługi Graficzne", "Pracownia Krawiecka", "Doradztwo IT", "Biuro Tłumaczeń", "Studio Fotografii", "Gabinet Fizjoterapii", "Usługi Księgowe", "Pracownia Ceramiki"];
+
+function address(r: R, c = pick(r, CITIES)): Address {
+  const postal = c.postal + Array.from({ length: 3 }, () => int(r, 0, 9)).join("");
+  return { street: `ul. ${pick(r, STREETS)}`, house: String(int(r, 1, 120)), flat: chance(r, 0.6) ? String(int(r, 1, 60)) : undefined, postalCode: `${postal.slice(0, 2)}-${postal.slice(2)}`, city: c.city, commune: c.commune };
+}
+const phone = (r: R) => `${pick(r, [5, 6, 7, 8])}${int(r, 0, 9)}${int(r, 0, 9)} ${int(r, 100, 999)} ${int(r, 100, 999)}`;
+const ascii = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l").replace(/Ł/g, "L").toLowerCase();
+
+/** PESEL dziecka urodzonego w danym dniu (płeć z danych dziecka). */
+const childPesel = (r: R, birth: string, sex: KidInfo["sex"]) => pesel(r, birth, sex !== "chlopiec");
+
+/**
+ * Dane potrzebne do pełnego wypełnienia wniosków: adres, telefon, e-mail, rachunek, dowód,
+ * REGON i adres płatnika, dane własnej firmy, PESEL i miejsce urodzenia dzieci. Uzupełnia tylko brakujące pola.
+ */
+function enrich(input: Omit<CaseInput, "asOf">, no: number): Omit<CaseInput, "asOf"> {
+  const r = rng(no * 104729 + 7);
+  const c = pick(r, CITIES);
+  const home = address(r, c);
+  const fill = (p: ParentProfile | undefined) => {
+    if (!p) return;
+    p.address ??= { ...home };
+    p.phone ??= phone(r);
+    p.email ??= `${ascii(p.firstName)}.${ascii(p.lastName)}${int(r, 1, 99)}@poczta.example`;
+    p.bankAccount ??= nrb(r);
+    p.idDocument ??= idCard(r);
+    if (p.payer) {
+      p.payer.regon ??= regon(r);
+      p.payer.address ??= address(r, chance(r, 0.7) ? c : pick(r, CITIES));
+      p.payer.phone ??= phone(r);
+    }
+    if (["jdg", "jdg_preferencyjna", "maly_zus_plus", "ulga_na_start"].includes(p.title)) p.business ??= { name: `${pick(r, BUSINESS)} ${p.firstName} ${p.lastName}`, nip: nip(r), regon: regon(r), address: { ...home } };
+  };
+  fill(input.mother);
+  fill(input.father);
+  const ch = input.child;
+  if (ch.birthDate && ch.kids) {
+    ch.kids = ch.kids.map((k, i) => ({
+      ...k,
+      pesel: k.pesel ?? childPesel(r, ch.birthDate!, k.sex),
+      birthPlace: k.birthPlace ?? `${c.hospital}, ${c.city}`,
+      weightG: k.weightG ?? ch.birthWeightsG?.[i] ?? int(r, 2800, 4100),
+      birthTime: k.birthTime ?? `${String(int(r, 0, 23)).padStart(2, "0")}:${String(int(r, 0, 59)).padStart(2, "0")}`,
+    }));
+  }
+  return input;
 }
 
 // ---------- słowniki ----------
@@ -219,6 +308,7 @@ export function familyByNo(no: number, today = new Date().toISOString().slice(0,
   let f = cache.get(key);
   if (!f) {
     f = no <= TEST_PROFILES.length ? fromProfile(TEST_PROFILES[no - 1], no, today) : generate(no, today);
+    f.input = enrich(f.input, no);
     cache.set(key, f);
   }
   return f;
@@ -245,3 +335,27 @@ export const SCENARIO_INFO = [
   "część firm z zaległością w składkach (blokada wypłaty), zwolnienia L4 z kodem B, umowy na czas określony, łączenie urlopu z pracą",
   "rodziny 1–5: przygotowane scenariusze szczególne – wcześniaki bliźnięta, firma z długiem, studentka, adopcja 3-latka, etat w małej firmie",
 ];
+
+/** Uzupełnia dane zapisane na urządzeniu o nowe pola z profilu rodziny (adres, rachunek, REGON…), nie nadpisując wpisów użytkownika. */
+export function completeFromFamily<T extends Pick<CaseInput, "mother" | "father" | "child">>(data: T, fam: Family): T {
+  const out = structuredClone(data);
+  const copy = (p: ParentProfile | undefined, src: ParentProfile | undefined) => {
+    if (!p || !src) return;
+    p.address ??= src.address;
+    p.phone ??= src.phone;
+    p.email ??= src.email;
+    p.bankAccount ??= src.bankAccount;
+    p.idDocument ??= src.idDocument;
+    if (p.title === src.title) p.business ??= src.business;
+    if (p.payer && src.payer && p.payer.nip === src.payer.nip) {
+      p.payer.regon ??= src.payer.regon;
+      p.payer.address ??= src.payer.address;
+      p.payer.phone ??= src.payer.phone;
+    }
+  };
+  copy(out.mother, fam.input.mother);
+  copy(out.father, fam.input.father);
+  if (out.child.birthDate && out.child.birthDate === fam.input.child.birthDate && out.child.kids && fam.input.child.kids)
+    out.child.kids = out.child.kids.map((k, i) => ({ ...fam.input.child.kids?.[i], ...Object.fromEntries(Object.entries(k).filter(([, v]) => v !== undefined && v !== "")) }));
+  return out;
+}

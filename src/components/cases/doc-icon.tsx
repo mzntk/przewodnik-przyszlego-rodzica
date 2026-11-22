@@ -11,6 +11,7 @@ const ICONS: Record<DocId, typeof FileText> = {
   "URLOP-UZUP": CalendarHeart,
   "URLOP-OJC": CalendarHeart,
   ZAM: HandCoins,
+  "ZAM-TATA": HandCoins,
   "Z-3": Building2,
   "Z-3a": Building2,
   "ZAS-53": Stethoscope,

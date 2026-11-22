@@ -50,10 +50,33 @@ export interface SickLeave {
   diagnosis?: string;
 }
 
+/** Adres w układzie druków ZUS (ulica, nr domu, nr lokalu, kod, miejscowość/poczta). */
+export interface Address {
+  street: string;
+  house: string;
+  flat?: string;
+  postalCode: string;
+  city: string;
+  /** gmina (ZCNA) */
+  commune?: string;
+  country?: string;
+}
+
 export interface PayerInfo {
   name: string;
   nip: string;
   insuredCount: number; // liczba zgłoszonych do ubezpieczenia chorobowego na 30.11 poprzedniego roku
+  regon?: string;
+  address?: Address;
+  phone?: string;
+}
+
+/** Własna działalność (płatnik składek za siebie) – dane do ZAM / ZAS-53. */
+export interface BusinessInfo {
+  name: string;
+  nip: string;
+  regon: string;
+  address?: Address;
 }
 
 export interface ParentProfile {
@@ -88,6 +111,15 @@ export interface ParentProfile {
   previousBenefitEnd?: string; // do zasady ciągłości (przerwa < 1 mies.)
   secondaryTitles?: InsuranceTitle[];
   sickLeaves: SickLeave[];
+  /** Dane kontaktowe i do wypłaty – z mObywatela / CEIDG / profilu PUE (fikcyjne) */
+  address?: Address;
+  phone?: string;
+  email?: string;
+  /** NRB – 26 cyfr, do wypłaty zasiłku przelewem */
+  bankAccount?: string;
+  /** Seria i numer dowodu osobistego (potrzebne tylko bez PESEL) */
+  idDocument?: string;
+  business?: BusinessInfo;
   age50plus?: boolean;
   employmentLossReason?: "upadlosc" | "likwidacja" | "smierc_pracodawcy" | "bezprawne_zwolnienie" | null;
 }

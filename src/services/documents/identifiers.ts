@@ -49,3 +49,23 @@ export function fixNip(first9: string) {
   const c = w.reduce((s, wi, i) => s + wi * Number(first9[i]), 0) % 11;
   return c === 10 ? null : first9 + c;
 }
+
+/** Numer rachunku (NRB, 26 cyfr) – suma kontrolna IBAN mod 97 dla kraju PL. */
+export function validateNrb(raw: string): { valid: boolean; error?: string } {
+  const clean = raw.replace(/[\s-]/g, "").replace(/^PL/i, "");
+  if (!/^\d{26}$/.test(clean)) return { valid: false, error: "Numer rachunku musi mieć 26 cyfr" };
+  const num = `${clean.slice(2)}2521${clean.slice(0, 2)}`;
+  let mod = 0;
+  for (const ch of num) mod = (mod * 10 + Number(ch)) % 97;
+  return mod === 1 ? { valid: true } : { valid: false, error: "Błędna suma kontrolna numeru rachunku – sprawdź, czy nie ma literówki" };
+}
+
+/** Seria i numer dowodu osobistego (np. ABC123456) – cyfra kontrolna na 4. pozycji. */
+export function validateIdCard(raw: string): { valid: boolean; error?: string } {
+  const s = raw.replace(/\s/g, "").toUpperCase();
+  if (!/^[A-Z]{3}\d{6}$/.test(s)) return { valid: false, error: "Dowód osobisty: 3 litery i 6 cyfr" };
+  const v = (c: string) => (/\d/.test(c) ? Number(c) : c.charCodeAt(0) - 55);
+  const w = [7, 3, 1, 9, 7, 3, 1, 7, 3];
+  const sum = s.split("").reduce((acc, c, i) => acc + v(c) * w[i], 0);
+  return sum % 10 === 0 ? { valid: true } : { valid: false, error: "Błędna cyfra kontrolna dowodu osobistego" };
+}

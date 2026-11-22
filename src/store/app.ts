@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CaseInput } from "@/models/types";
 import { TEST_PROFILES, emptyCase } from "@/data/profiles";
-import { familyByNo, getFamily, randomFamilyNo } from "@/data/families";
+import { completeFromFamily, familyByNo, getFamily, randomFamilyNo } from "@/data/families";
 import type { CaseState } from "@/models/case-status";
 
 export type CaseData = Omit<CaseInput, "asOf">;
@@ -234,7 +234,7 @@ export const useApp = create<AppState>()(
           onboarded: [...new Set([...s.onboarded, fam.id])],
           // ponowne logowanie: dane i wpisy z urządzenia zostają; pierwsze – pełny profil rodziny z ZUS
           ...(known
-            ? { data: s.data.father || account === "mama" ? s.data : { ...s.data, father: structuredClone(fam.input.father) } }
+            ? { data: completeFromFamily(s.data.father || account === "mama" ? s.data : { ...s.data, father: structuredClone(fam.input.father) }, fam) }
             : { data: structuredClone(fam.input), zusFetched: false, cases: {}, notifications: [], zusMessages: [], appointments: [], dayLogs: {}, invite: null, checklists: {} }),
         });
         const p = account === "tata" ? fam.input.father : fam.input.mother;
@@ -323,11 +323,15 @@ export const useApp = create<AppState>()(
     }),
     {
       name: "zasilkowy-przewodnik-v3",
-      version: 5,
+      version: 6,
       partialize: ({ activeCase: _a, ...rest }) => rest,
       // v3 → v4: nowe pola (preferencje powiadomień, wiadomości, zaproszenie) – uzupełniamy domyślnymi
-      migrate: (persisted, version) =>
-        ({ ...(persisted as object), ...(version < 4 ? { notifyPrefs: defaultPrefs(), email: "", zusMessages: [], invite: null, aiConsent: true } : {}), familyNo: null }) as unknown as AppState,
+      // v5 → v6: adres, rachunek, REGON płatnika, PESEL dzieci – uzupełniane z profilu rodziny (pełne wnioski)
+      migrate: (persisted, version) => {
+        const p = { ...(persisted as AppState), ...(version < 4 ? { notifyPrefs: defaultPrefs(), email: "", zusMessages: [], invite: null, aiConsent: true } : {}), ...(version < 5 ? { familyNo: null } : {}) } as AppState;
+        if (version < 6 && p.familyNo && p.data) p.data = completeFromFamily(p.data, familyByNo(p.familyNo));
+        return p;
+      },
     },
   ),
 );

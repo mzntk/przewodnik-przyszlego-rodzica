@@ -7,6 +7,29 @@ import { childLine } from "@/lib/child";
 import type { CalculationResult } from "@/models/types";
 import type { CaseData } from "@/store/app";
 import { dPL } from "@/lib/utils";
+import { OFFICIAL_FIELDS, fillValues, todayIso, type FieldValue, type OfficialFormId } from "@/data/official-forms";
+
+export interface FormField {
+  key: string;
+  label: string;
+  value: FieldValue;
+  type?: "text" | "date" | "textarea";
+  /** sekcja druku (oficjalne druki ZUS) */
+  section?: string;
+  /** pole wyboru (X) */
+  check?: boolean;
+  /** pole wymagane – liczone jako brak, gdy puste */
+  required?: boolean;
+}
+
+/** Pola, bez których ZUS wezwie do uzupełnienia (dane identyfikacyjne, adres, płatnik). */
+const REQUIRED_READS = new Set(["pesel", "firstName", "lastName", "street", "house", "postal", "city", "nip", "payerName", "childPesel", "childFirst", "childLast"]);
+
+/** Pola oficjalnego druku ZUS wypełnione danymi z aplikacji (potok 1). */
+export function officialFields(id: OfficialFormId, d: CaseData, r: CalculationResult, who: "matka" | "ojciec"): FormField[] {
+  const vals = fillValues(id, { d, r, who, today: todayIso() });
+  return (OFFICIAL_FIELDS[id] ?? []).map((f) => ({ key: f.name, label: f.label, section: f.section, check: f.check, value: f.check ? Boolean(vals[f.name]) : String(vals[f.name] ?? ""), required: !!f.read && REQUIRED_READS.has(f.read) }));
+}
 
 export interface FormDef {
   id: string;
@@ -16,7 +39,9 @@ export interface FormDef {
   legal: string;
   when: string;
   forEmployeeOnly?: boolean;
-  fields: { key: string; label: string; value: string; type?: "text" | "date" | "textarea" }[];
+  /** oficjalny druk ZUS (edytowalny PDF) – pobranie wypełnia oryginał */
+  official?: OfficialFormId;
+  fields: FormField[];
   attachments: string[];
   statements?: string[];
   relevant: boolean;
@@ -40,6 +65,8 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
   const payerZus = r.mother.eligibility.payer.payer === "zus";
   const birthDoc = payerZus ? [] : ["Odpis skrócony aktu urodzenia dziecka (lub jego kopia)"];
   const bio = d.child.path === "biologiczny";
+  /** ZCNA składa płatnik tego z rodziców, który zgłasza dziecko – domyślnie tata, gdy ma płatnika */
+  const zcnaWho: "matka" | "ojciec" = f?.payer || f?.business ? "ojciec" : "matka";
 
   return [
     {
@@ -145,18 +172,8 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       target: "ZUS",
       legal: "art. 29–31 ustawy zasiłkowej; Załącznik 6 rozporządzenia z 27.09.2026",
       when: employee ? "Pracownik nie składa ZAM – wystarczy wniosek urlopowy do pracodawcy" : "Po porodzie (lub do 6 tyg. przed – z zaświadczeniem lekarskim)",
-      fields: [
-        { key: "name", label: "Imię i nazwisko ubezpieczonej", value: name },
-        { key: "pesel", label: "PESEL", value: m.pesel },
-        { key: "payer", label: "Płatnik składek (NIP, nazwa)", value: m.payer?.name ? `${m.payer.name}, NIP ${m.payer.nip}` : "osoba prowadząca działalność – płatnik za siebie" },
-        { key: "type", label: "Rodzaj świadczenia i okres", value: `macierzyński ${dPL(mat?.from)}–${dPL(mat?.to)}${parM.length ? `; rodzicielski ${dPL(parM[0].from)}–${dPL(parM.at(-1)!.to)}` : ""}` },
-        { key: "event", label: bio ? "Data porodu / przewidywana data porodu" : "Data przyjęcia dziecka", value: dPL(event) },
-        { key: "child", label: bio ? "Dziecko (imię, nazwisko, PESEL)" : "Dziecko przyjęte na wychowanie", value: d.child.birthDate || !bio ? childLine(d.child, m.lastName) : "" },
-        { key: "variant", label: "Wniosek o 81,5% za cały okres (art. 30a)", value: d.plan.variant === "combined" ? "TAK" : "NIE" },
-        { key: "zz", label: "Zaświadczenie „Za życiem”", value: d.child.zaZyciem ? "TAK" : "NIE" },
-        { key: "bank", label: "Numer rachunku bankowego", value: "" },
-      ],
-      statements: ["Zamierzam korzystać z pełnego wymiaru urlopu i co najmniej jeden dzień rodzicielskiego przypadnie w 1. roku życia dziecka (Zał. 6 pkt 15)"],
+      official: "ZAM",
+      fields: officialFields("ZAM", d, r, "matka"),
       attachments: [...(payerZus ? [] : ["Odpis skrócony aktu urodzenia dziecka"]), ...(d.child.zaZyciem ? ["Zaświadczenie „Za życiem”"] : []), ...(r.leave.supplementaryWeeks ? ["Zaświadczenie szpitala o pobycie dziecka"] : [])],
       relevant: !employee,
     },
@@ -167,29 +184,20 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       target: "ZUS",
       legal: "Załącznik 1 rozporządzenia z 27.09.2026",
       when: "Po otrzymaniu e-ZLA",
-      fields: [
-        { key: "name", label: "Imię i nazwisko", value: name },
-        { key: "pesel", label: "PESEL", value: m.pesel },
-        { key: "period", label: "Okres niezdolności i seria/nr e-ZLA", value: m.sickLeaves.map((l) => `${dPL(l.from)}–${dPL(l.to)}${l.codeB ? " (B)" : ""}`).join("; ") },
-        { key: "bank", label: "Numer rachunku bankowego", value: "" },
-      ],
+      official: "ZAS-53",
+      fields: officialFields("ZAS-53", d, r, "matka"),
       attachments: [],
       relevant: ["jdg", "jdg_preferencyjna", "maly_zus_plus"].includes(m.title) && m.sickLeaves.length > 0,
     },
     {
       id: "z15a",
-      code: "Z-15A",
-      title: "Wniosek o zasiłek opiekuńczy – opieka nad dzieckiem",
+      code: "Z-15",
+      title: "Wniosek o zasiłek opiekuńczy (Z-15 – od 24.10.2026 zastępuje Z-15A i Z-15B)",
       target: "ZUS",
       legal: "art. 32–35 ustawy zasiłkowej; Załącznik 7 rozporządzenia z 27.09.2026",
       when: "Po okresie opieki",
-      fields: [
-        { key: "name", label: "Imię i nazwisko", value: name },
-        { key: "pesel", label: "PESEL", value: m.pesel },
-        { key: "child", label: "Dane dziecka (imię, nazwisko, PESEL, data urodzenia)", value: d.child.birthDate ? childLine(d.child, m.lastName) : "" },
-        { key: "period", label: "Okres opieki i seria/nr zaświadczenia lekarskiego", value: "" },
-      ],
-      statements: ["Nie ma innego domownika mogącego zapewnić opiekę w tym okresie", "W tym roku drugi rodzic pobrał zasiłek opiekuńczy za ___ dni"],
+      official: "Z-15",
+      fields: officialFields("Z-15", d, r, "matka"),
       attachments: [],
       relevant: true,
     },
@@ -200,14 +208,34 @@ export function buildForms(d: CaseData, r: CalculationResult): FormDef[] {
       target: "ZUS",
       legal: "art. 77–80 ustawy o emeryturach i rentach z FUS",
       when: "Do 12 miesięcy od dnia śmierci (także przy martwym urodzeniu)",
-      fields: [
-        { key: "name", label: "Imię i nazwisko wnioskodawcy", value: name },
-        { key: "pesel", label: "PESEL", value: m.pesel },
-        { key: "death", label: "Data zgonu / martwego urodzenia", value: dPL(d.child.childDeathDate ?? (d.child.stillbirth ? event : "")) },
-        { key: "bank", label: "Numer rachunku bankowego", value: "" },
-      ],
+      official: "Z-12",
+      fields: officialFields("Z-12", d, r, "matka"),
       attachments: ["Skrócony odpis aktu zgonu (karta martwego urodzenia)", "Rachunki potwierdzające koszty pogrzebu"],
       relevant: !!(d.child.stillbirth || d.child.childDeathDate),
+    },
+    {
+      id: "zam-tata",
+      code: "ZAM",
+      title: "Wniosek o zasiłek macierzyński – tata (urlop ojcowski / rodzicielski)",
+      target: "ZUS",
+      legal: "art. 29 ust. 1 pkt 4 i art. 31 ustawy zasiłkowej; Załącznik 6 rozporządzenia z 27.09.2026",
+      when: "Do 12. miesiąca życia dziecka (ojcowski); min. 21 dni przed rodzicielskim",
+      official: "ZAM",
+      fields: f ? officialFields("ZAM", d, r, "ojciec") : [],
+      attachments: [...(f && !payerZus ? ["Odpis skrócony aktu urodzenia dziecka"] : [])],
+      relevant: !!f && f.title !== "uop" && pat.length > 0,
+    },
+    {
+      id: "zcna",
+      code: "ZUS ZCNA",
+      title: "Zgłoszenie dziecka do ubezpieczenia zdrowotnego (ZCNA)",
+      target: "ZUS",
+      legal: "art. 74 i 75 ustawy o świadczeniach opieki zdrowotnej",
+      when: "W ciągu 7 dni od nadania PESEL dziecku",
+      official: "ZCNA",
+      fields: officialFields("ZCNA", d, r, zcnaWho),
+      attachments: [],
+      relevant: bio && !!d.child.birthDate,
     },
     {
       id: "usc",

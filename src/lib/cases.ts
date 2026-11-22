@@ -18,6 +18,8 @@ export const FORM_ID: Partial<Record<DocId, string>> = {
   "URLOP-UZUP": "uzupelniajacy",
   "URLOP-OJC": "ojcowski",
   ZAM: "zam",
+  "ZAM-TATA": "zam-tata",
+  "NFZ-ZGLOSZENIE": "zcna",
   "ZAS-53": "zas53",
   "Z-15A": "z15a",
   "Z-12": "z12",
@@ -62,8 +64,9 @@ export function listCases(d: CaseData, r: CalculationResult): CaseItem[] {
     }
   }
   if (d.father && r.father?.eligibility.insured) {
-    if (d.plan.paternity.enabled) add("URLOP-OJC", dl("paternity"));
-    if (d.plan.fatherParentalWeeks > 0) add("URLOP-RODZ-TATA");
+    // pracownik – wniosek urlopowy do pracodawcy; zlecenie / własna firma – ZAM do ZUS
+    if (d.plan.paternity.enabled) add(d.father.title === "uop" ? "URLOP-OJC" : "ZAM-TATA", dl("paternity"));
+    if (d.plan.fatherParentalWeeks > 0 && d.father.title === "uop") add("URLOP-RODZ-TATA");
   }
   if (bio && !loss) {
     add("USC-REJESTRACJA", dl("usc"));

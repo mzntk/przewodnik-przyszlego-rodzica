@@ -9,7 +9,9 @@ import { GUIDES, type DocId, type Recipient } from "@/data/documents";
 import { DocIcon } from "./doc-icon";
 import { MotionTabs } from "@/components/ui/tabs";
 import { FORM_ID, listCases, guideContext, type CaseItem } from "@/lib/cases";
-import { buildForms } from "@/components/forms/form-catalog";
+import { buildForms, type FormField } from "@/components/forms/form-catalog";
+import { EXCLUSIVE, OFFICIAL_FORMS, OFFICIAL_FOR_DOC, findConflicts, type FieldValue, type OfficialFormId } from "@/data/official-forms";
+import { fillOfficialPdf } from "@/lib/official-pdf";
 import { buildFormPdf, downloadBytes } from "@/lib/pdf";
 import { Sheet } from "@/components/ui/sheet";
 import { Badge, LegalChip } from "@/components/ui/badge";
@@ -98,8 +100,24 @@ function useFormFiles() {
   return files;
 }
 
+/** Zaznaczenie pola z automatycznym odznaczeniem pól, które się z nim wykluczają (np. TAK ↔ NIE). */
+function toggleExclusive(form: OfficialFormId | undefined, values: Record<string, FieldValue>, key: string, on: boolean): Record<string, FieldValue> {
+  const next = { ...values, [key]: on };
+  if (!on || !form) return next;
+  for (const g of EXCLUSIVE[form] ?? []) {
+    const mine = g.items.find((it) => (Array.isArray(it) ? it.includes(key) : it === key));
+    if (!mine) continue;
+    for (const it of g.items) if (it !== mine) for (const k of Array.isArray(it) ? it : [it]) next[k] = false;
+  }
+  // pary TAK/NIE rozpoznawane z nazw pól
+  const m = /^(.*\.)(TAK|NIE)(.*)$/.exec(key);
+  if (m) next[`${m[1]}${m[2] === "TAK" ? "NIE" : "TAK"}${m[3]}`] = false;
+  return next;
+}
+
 /** Kartka „wypełnionego druku” – podgląd z możliwością poprawienia każdego pola przed pobraniem. */
-function PaperPreview({ code, title, addressee, fields, values, onChange, statements, attachments, signer, editing }: { code: string; title: string; addressee: string; fields: { key: string; label: string }[]; values: Record<string, string>; onChange: (k: string, v: string) => void; statements?: string[]; attachments: string[]; signer: string; editing: boolean }) {
+function PaperPreview({ code, title, addressee, fields, values, onChange, statements, attachments, signer, place, editing, official }: { code: string; title: string; addressee: string; fields: FormField[]; values: Record<string, FieldValue>; onChange: (next: Record<string, FieldValue>) => void; statements?: string[]; attachments: string[]; signer: string; place: string; editing: boolean; official?: OfficialFormId }) {
+  const sections = [...new Set(fields.map((f) => f.section ?? ""))];
   return (
     <div className="overflow-hidden rounded-lg border border-line-strong bg-white shadow-card">
       <div className="flex items-center justify-between gap-2 border-b-2 border-brand px-4 py-3 sm:px-6">
@@ -107,29 +125,53 @@ function PaperPreview({ code, title, addressee, fields, values, onChange, statem
           <div className="text-[11px] font-bold tracking-wider text-brand uppercase">{code}</div>
           <div className="text-[15px] leading-snug font-black sm:text-[17px]">{title}</div>
         </div>
-        <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">podgląd</span>
+        <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">{official ? "oficjalny druk ZUS" : "podgląd"}</span>
       </div>
       <div className="space-y-3 px-4 py-4 font-[Lato] sm:px-6">
         <div className="text-right text-[12px] text-muted">
           Adresat: <b className="text-fg-2">{addressee}</b>
         </div>
-        <dl className="divide-y divide-dashed divide-line">
-          {fields.map((f) => {
-            const v = values[f.key] ?? "";
-            return (
-              <div key={f.key} className="grid gap-0.5 py-2 sm:grid-cols-[42%_1fr] sm:gap-3">
-                <dt className="text-[12px] text-muted">{f.label}</dt>
-                <dd className="min-w-0">
-                  {editing ? (
-                    <input value={v} onChange={(e) => onChange(f.key, e.target.value)} aria-label={f.label} className={cn("w-full border-b bg-transparent py-0.5 text-[14px] font-bold outline-none focus:border-brand", v.trim() ? "border-line-strong" : "border-orange bg-orange-soft/60")} placeholder="uzupełnij" />
-                  ) : (
-                    <span className={cn("text-[14px] font-bold", !v.trim() && "rounded bg-orange-soft px-1 font-normal text-orange")}>{v.trim() || "do uzupełnienia"}</span>
-                  )}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
+        {sections.map((sec) => {
+          const fs = fields.filter((f) => (f.section ?? "") === sec);
+          const filled = fs.some((f) => (f.check ? values[f.key] === true : String(values[f.key] ?? "").trim()));
+          if (official && !filled && !editing) return null;
+          return (
+            <div key={sec || "main"}>
+              {sec && <div className="mt-2 border-b border-line-strong pb-1 text-[12px] font-bold tracking-wide text-fg-2 uppercase">{sec}</div>}
+              <dl className="divide-y divide-dashed divide-line">
+                {fs.map((f) => {
+                  if (f.check) {
+                    const on = values[f.key] === true;
+                    if (!on && !editing) return null;
+                    return (
+                      <div key={f.key} className="flex items-start gap-2.5 py-2">
+                        <button type="button" disabled={!editing} onClick={() => onChange(toggleExclusive(official, values, f.key, !on))} role="checkbox" aria-checked={on} aria-label={f.label} className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-[3px] border-2 text-[13px] leading-none font-black", on ? "border-fg text-fg" : "border-line-strong text-transparent", editing && "cursor-pointer hover:border-brand")}>
+                          ✕
+                        </button>
+                        <span className={cn("text-[13px]", on ? "font-bold text-fg" : "text-muted")}>{f.label}</span>
+                      </div>
+                    );
+                  }
+                  const v = String(values[f.key] ?? "");
+                  if (official && !v.trim() && !editing && !f.required) return null;
+                  const warn = !v.trim() && (f.required || !official);
+                  return (
+                    <div key={f.key} className="grid gap-0.5 py-2 sm:grid-cols-[42%_1fr] sm:gap-3">
+                      <dt className="text-[12px] text-muted">{f.label}</dt>
+                      <dd className="min-w-0">
+                        {editing ? (
+                          <input value={v} onChange={(e) => onChange({ ...values, [f.key]: e.target.value })} aria-label={f.label} className={cn("w-full border-b bg-transparent py-0.5 text-[14px] font-bold outline-none focus:border-brand", warn ? "border-orange bg-orange-soft/60" : "border-line-strong")} placeholder={f.required || !official ? "uzupełnij" : "puste"} />
+                        ) : (
+                          <span className={cn("text-[14px] font-bold break-words", warn && "rounded bg-orange-soft px-1 font-normal text-orange")}>{v.trim() || "do uzupełnienia"}</span>
+                        )}
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            </div>
+          );
+        })}
         {statements && statements.length > 0 && (
           <div className="space-y-1 rounded bg-surface-2 p-3 text-[12px] text-fg-2">
             {statements.map((x) => (
@@ -143,7 +185,7 @@ function PaperPreview({ code, title, addressee, fields, values, onChange, statem
           </div>
         )}
         <div className="flex items-end justify-between gap-4 pt-4 text-[12px] text-muted">
-          <span>{dPL(new Date().toISOString().slice(0, 10))}</span>
+          <span>{[place, dPL(new Date().toISOString().slice(0, 10))].filter(Boolean).join(", ")}</span>
           <span className="border-t border-line-strong px-6 pt-1 text-center italic">{signer}</span>
         </div>
       </div>
@@ -156,7 +198,7 @@ export function CaseSheet() {
   const { activeCase, openCase, data, cases, setCase, profileId, account } = useApp();
   const { result } = useCalculation();
   const files = useFormFiles();
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, FieldValue>>({});
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<"jak" | "podglad">("jak");
   const [busy, setBusy] = useState(false);
@@ -174,19 +216,25 @@ export function CaseSheet() {
   const st = state?.status ?? "niezlozony";
   const ctx = guideContext(data, result);
   const attachments = g ? g.attachments(ctx) : [];
-  const fieldValues = form ? Object.fromEntries(form.fields.map((f) => [f.key, values[f.key] ?? f.value])) : {};
-  const missing = form ? form.fields.filter((f) => !fieldValues[f.key]?.trim()).length : 0;
+  const fieldValues: Record<string, FieldValue> = form ? Object.fromEntries(form.fields.map((f) => [f.key, values[f.key] ?? f.value])) : {};
+  const missing = form ? form.fields.filter((f) => !f.check && (f.required || !form.official) && !String(fieldValues[f.key] ?? "").trim()).length : 0;
+  const conflicts = form?.official ? findConflicts(form.official, fieldValues) : [];
+  const officialMeta = g ? OFFICIAL_FORMS[OFFICIAL_FOR_DOC[g.id]] : undefined;
   const mine = !!(g && result && listCases(data, result).some((c) => c.guide.id === g.id));
   const canSend = mine && g && g.owner !== "płatnik" && (st === "niezlozony" || st === "uzupelnienie") && (account !== "tata" || g.owner === "tata" || g.to === "USC");
   const addressee = g ? (g.to === "pracodawca" ? data.mother.payer?.name || "Pracodawca" : g.to === "ZUS" ? "Zakład Ubezpieczeń Społecznych" : "Kierownik Urzędu Stanu Cywilnego") : "";
-  const signer = fieldValues.name || `${data.mother.firstName} ${data.mother.lastName}`;
-  const blank = g && files.find((f) => f === `${g.id}.pdf`);
+  const signerP = g?.owner === "tata" && data.father ? data.father : data.mother;
+  const signer = String(fieldValues.name || `${signerP.firstName} ${signerP.lastName}`);
+  const place = signerP.address?.city ?? "";
   const sample = g && files.find((f) => f === `${g.id}-przyklad.pdf`);
 
   async function exportPdf() {
     if (!form || !g) return;
-    const bytes = await buildFormPdf({ code: g.code, title: form.title, addressee, legal: g.legal, fields: form.fields.map((f) => ({ label: f.label, value: fieldValues[f.key] })), attachments, statements: form.statements, signer, place: "", date: dPL(new Date().toISOString().slice(0, 10)) });
-    downloadBytes(bytes, `${g.id}.pdf`);
+    if (conflicts.length) return void toast.error("Zaznaczono wykluczające się pola", { description: conflicts.map((c) => c.label).join("; ") });
+    const bytes = form.official
+      ? await fillOfficialPdf(OFFICIAL_FORMS[form.official].file, fieldValues)
+      : await buildFormPdf({ code: g.code, title: form.title, addressee, legal: g.legal, fields: form.fields.map((f) => ({ label: f.label, value: String(fieldValues[f.key] ?? "") })), attachments, statements: form.statements, signer, place, date: dPL(new Date().toISOString().slice(0, 10)) });
+    downloadBytes(bytes, `${g.id}${form.official ? "-wypelniony" : ""}.pdf`);
     toast.success("Pobrano wypełniony wniosek (PDF)", { description: missing ? `${missing} ${plural(missing, "pole zostało puste", "pola zostały puste", "pól zostało pustych")} – uzupełnij je odręcznie.` : undefined });
   }
 
@@ -289,23 +337,31 @@ export function CaseSheet() {
                 <LegalChip className="mt-3">Stan prawny po 24.10.2026: ZUR i ZAO połączone z ZAM, Z-3b zlikwidowany</LegalChip>
               </Section>
 
-              <Section icon={FileDown} title="Wzór druku i przykład wypełnienia">
-                <div className="flex flex-wrap gap-2">
-                  {blank && (
-                    <a href={`/formularze/${blank}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[15px] font-bold hover:border-brand">
-                      <FileDown className="h-4 w-4 text-brand" /> Pusty wzór (PDF)
-                    </a>
-                  )}
-                  {sample && (
-                    <a href={`/formularze/${sample}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[15px] font-bold hover:border-brand">
-                      <Eye className="h-4 w-4 text-brand" /> Przykład wypełnienia (PDF)
-                    </a>
-                  )}
-                  <a href="https://www.zus.pl/wzory-formularzy" target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-3 text-[15px] text-fg-2 hover:border-brand">
-                    <ExternalLink className="h-4 w-4" /> Wzory formularzy na zus.pl
+              <Section icon={FileDown} title="Wzór druku">
+                {officialMeta ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <a href={`/formularze/${officialMeta.file}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[15px] font-bold hover:border-brand">
+                        <FileDown className="h-4 w-4 text-brand" /> Pusty druk {officialMeta.code} (edytowalny PDF)
+                      </a>
+                      {sample && (
+                        <a href={`/formularze/${sample}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line-strong px-3 text-[15px] font-bold hover:border-brand">
+                          <Eye className="h-4 w-4 text-brand" /> Przykład wypełnienia (PDF)
+                        </a>
+                      )}
+                      <a href={officialMeta.zusUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-3 text-[15px] text-fg-2 hover:border-brand">
+                        <ExternalLink className="h-4 w-4" /> Druk {officialMeta.code} na zus.pl
+                      </a>
+                    </div>
+                    <p className="mt-2 text-[13px] text-muted">{officialMeta.title}. {officialMeta.filledBy === "płatnik" ? "Ten druk wypełnia i wysyła płatnik składek – w aplikacji przygotujesz dla niego swoje dane." : "Aktualna wersja „Wypełnij i wydrukuj” z zus.pl – otwórz w Adobe Reader."}</p>
+                  </>
+                ) : g.to === "pracodawca" ? (
+                  <p className="text-[15px] text-fg-2">Dla wniosków urlopowych nie ma urzędowego druku – pracodawca przyjmie wniosek w dowolnej formie, jeśli ma elementy z rozporządzenia MRPiPS z 11.03.2025 (Dz.U. poz. 322). Nasz wniosek je zawiera – pobierzesz go w zakładce „Podgląd wniosku”.</p>
+                ) : (
+                  <a href={g.to === "USC" ? "https://www.gov.pl/web/gov/uzyskaj-odpis-aktu-urodzenia" : "https://www.zus.pl/wzory-formularzy"} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-3 text-[15px] text-fg-2 hover:border-brand">
+                    <ExternalLink className="h-4 w-4" /> {g.to === "USC" ? "Usługa na gov.pl" : "Wzory formularzy na zus.pl"}
                   </a>
-                </div>
-                {!blank && !sample && <p className="mt-2 text-[13px] text-muted">Oficjalny wzór i przykład pojawią się tu po dodaniu plików PDF z zus.pl.</p>}
+                )}
               </Section>
             </div>
           )}
@@ -318,7 +374,13 @@ export function CaseSheet() {
                   {editing ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />} {editing ? "Gotowe" : "Edytuj przed pobraniem"}
                 </Button>
               </div>
-              <PaperPreview code={g.code} title={form.title} addressee={addressee} fields={form.fields} values={fieldValues} onChange={(k, v) => setValues((x) => ({ ...x, [k]: v }))} statements={form.statements} attachments={attachments} signer={signer} editing={editing} />
+              {conflicts.length > 0 && (
+                <div className="rounded-xl bg-red-soft px-4 py-3 text-[14px] text-red">
+                  <b>Wykluczające się zaznaczenia:</b> {conflicts.map((c) => c.label).join("; ")}
+                </div>
+              )}
+              <PaperPreview code={g.code} title={form.title} addressee={addressee} fields={form.fields} values={fieldValues} onChange={setValues} statements={form.statements} attachments={attachments} signer={signer} place={place} editing={editing} official={form.official} />
+              {form.official && <p className="text-[13px] text-muted">Pobierzesz oryginalny, edytowalny druk {g.code} z zus.pl z wpisanymi danymi – możesz go jeszcze poprawić w Adobe Reader. Po wydrukowaniu podpisz go (albo złóż przez PUE/eZUS).</p>}
               {Object.keys(values).length > 0 && (
                 <button onClick={() => setValues({})} className="text-[13px] font-bold text-muted hover:text-fg">
                   Przywróć dane z profilu
